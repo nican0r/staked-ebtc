@@ -1,49 +1,60 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
-// ====================================================================
-// |     ______                   _______                             |
-// |    / _____________ __  __   / ____(_____  ____ _____  ________   |
-// |   / /_  / ___/ __ `| |/_/  / /_  / / __ \/ __ `/ __ \/ ___/ _ \  |
-// |  / __/ / /  / /_/ _>  <   / __/ / / / / / /_/ / / / / /__/  __/  |
-// | /_/   /_/   \__,_/_/|_|  /_/   /_/_/ /_/\__,_/_/ /_/\___/\___/   |
-// |                                                                  |
-// ====================================================================
-// ============================ StakedFrax ============================
-// ====================================================================
-// Frax Finance: https://github.com/FraxFinance
-
-import { Timelock2Step } from "frax-std/access-control/v2/Timelock2Step.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeCastLib } from "solmate/utils/SafeCastLib.sol";
+import { SafeCastLib } from "@solmate/utils/SafeCastLib.sol";
+import { SafeTransferLib } from "@solmate/utils/SafeTransferLib.sol";
 import { LinearRewardsErc4626, ERC20 } from "./LinearRewardsErc4626.sol";
+import { AuthNoOwner } from "./Dependencies/AuthNoOwner.sol";
 
-/// @title Staked Frax
+/// @title Staked eBTC
 /// @notice A ERC4626 Vault implementation with linear rewards, rewards can be capped
-contract StakedFrax is LinearRewardsErc4626, Timelock2Step {
+contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
+    using SafeTransferLib for ERC20;
     using SafeCastLib for *;
 
     /// @notice The maximum amount of rewards that can be distributed per second per 1e18 asset
     uint256 public maxDistributionPerSecondPerAsset;
 
+    event Donation(address indexed donor, uint256 amount);
+
+    /// @notice Receive an eBTC donation from an authorized donor
+    function donate(uint256 amount) external requiresAuth {
+        totalBalance += amount;
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        emit Donation(msg.sender, amount);
+    }
+
+    /// @notice Sweep unauthorized donations and extra tokens
+    function sweep(address token) external requiresAuth {
+        if (token == address(asset)) {
+            uint256 currentBalance = asset.balanceOf(address(this));
+            if (currentBalance > totalBalance) {
+                unchecked {
+                    asset.safeTransfer(msg.sender, currentBalance - totalBalance);
+                }
+            }
+        } else {
+            ERC20(token).safeTransfer(msg.sender, ERC20(token).balanceOf(address(this)));
+        }
+    }
+    
     /// @param _underlying The erc20 asset deposited
     /// @param _name The name of the vault
     /// @param _symbol The symbol of the vault
     /// @param _rewardsCycleLength The length of the rewards cycle in seconds
     /// @param _maxDistributionPerSecondPerAsset The maximum amount of rewards that can be distributed per second per 1e18 asset
-    /// @param _timelockAddress The address of the timelock/owner contract
     constructor(
         IERC20 _underlying,
         string memory _name,
         string memory _symbol,
         uint32 _rewardsCycleLength,
         uint256 _maxDistributionPerSecondPerAsset,
-        address _timelockAddress
-    )
-        LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength)
-        Timelock2Step(_timelockAddress)
+        address _authorityAddress
+    ) LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength)
     {
         maxDistributionPerSecondPerAsset = _maxDistributionPerSecondPerAsset;
+        _initializeAuthority(_authorityAddress);
     }
 
     /// @notice The ```SetMaxDistributionPerSecondPerAsset``` event is emitted when the maxDistributionPerSecondPerAsset is set
@@ -54,8 +65,7 @@ contract StakedFrax is LinearRewardsErc4626, Timelock2Step {
     /// @notice The ```setMaxDistributionPerSecondPerAsset``` function sets the maxDistributionPerSecondPerAsset
     /// @dev This function can only be called by the timelock, caps the value to type(uint64).max
     /// @param _maxDistributionPerSecondPerAsset The maximum amount of rewards that can be distributed per second per 1e18 asset
-    function setMaxDistributionPerSecondPerAsset(uint256 _maxDistributionPerSecondPerAsset) external {
-        _requireSenderIsTimelock();
+    function setMaxDistributionPerSecondPerAsset(uint256 _maxDistributionPerSecondPerAsset) external requiresAuth {
         syncRewardsAndDistribution();
 
         // NOTE: prevents bricking the contract via overflow

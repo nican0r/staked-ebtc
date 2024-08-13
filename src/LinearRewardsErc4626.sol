@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.20;
 
 // ====================================================================
 // |     ______                   _______                             |
@@ -13,8 +13,8 @@ pragma solidity ^0.8.21;
 // ====================================================================
 // Frax Finance: https://github.com/FraxFinance
 
-import { ERC20, ERC4626 } from "solmate/mixins/ERC4626.sol";
-import { SafeCastLib } from "solmate/utils/SafeCastLib.sol";
+import { ERC20, ERC4626 } from "@solmate/tokens/ERC4626.sol";
+import { SafeCastLib } from "@solmate/utils/SafeCastLib.sol";
 
 /// @title LinearRewardsErc4626
 /// @notice An ERC4626 Vault implementation with linear rewards
@@ -42,6 +42,8 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     /// @notice The total amount of assets that have been distributed and deposited
     uint256 public storedTotalAssets;
+
+    uint256 public totalBalance;
 
     /// @notice The precision of the underlying asset
     uint256 public immutable UNDERLYING_PRECISION;
@@ -129,7 +131,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         if (_timestamp <= _rewardsCycleData.cycleEnd) return _rewardsCycleData;
 
         // Calculate rewards for next cycle
-        uint256 _newRewards = asset.balanceOf(address(this)) - storedTotalAssets;
+        uint256 _newRewards = totalBalance - storedTotalAssets;
 
         // Calculate the next cycle end, this keeps cycles at the same time regardless of when sync is called
         uint40 _cycleEnd = (((_timestamp + REWARDS_CYCLE_LENGTH) / REWARDS_CYCLE_LENGTH) * REWARDS_CYCLE_LENGTH)
@@ -187,6 +189,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     function afterDeposit(uint256 amount, uint256 shares) internal virtual override {
         storedTotalAssets += amount;
+        totalBalance += amount;
     }
 
     /// @notice The ```deposit``` function allows a user to mint shares by depositing underlying
@@ -209,6 +212,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     function beforeWithdraw(uint256 amount, uint256 shares) internal virtual override {
         storedTotalAssets -= amount;
+        totalBalance -= amount;
     }
 
     /// @notice The ```withdraw``` function allows a user to withdraw a given amount of underlying
@@ -252,15 +256,20 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         bytes32 _s
     ) external returns (uint256 _shares) {
         uint256 _amount = _approveMax ? type(uint256).max : _assets;
-        asset.permit({
-            owner: msg.sender,
-            spender: address(this),
-            value: _amount,
-            deadline: _deadline,
-            v: _v,
-            r: _r,
-            s: _s
-        });
+        try 
+            asset.permit({
+                owner: msg.sender,
+                spender: address(this),
+                value: _amount,
+                deadline: _deadline,
+                v: _v,
+                r: _r,
+                s: _s
+            }) 
+        { } catch {
+            /// @notice adding try...catch around to mitigate potential permit front-running
+            /// see: https://www.trust-security.xyz/post/permission-denied
+        }
         _shares = (deposit({ _assets: _assets, _receiver: _receiver }));
     }
 
