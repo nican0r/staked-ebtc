@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.20;
+pragma solidity 0.8.25;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeCastLib } from "@solmate/utils/SafeCastLib.sol";
@@ -51,8 +51,11 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         uint32 _rewardsCycleLength,
         uint256 _maxDistributionPerSecondPerAsset,
         address _authorityAddress
-    ) LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength)
-    {
+    ) LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength) {
+        if (_maxDistributionPerSecondPerAsset > type(uint64).max) {
+            _maxDistributionPerSecondPerAsset = type(uint64).max;
+        }
+
         maxDistributionPerSecondPerAsset = _maxDistributionPerSecondPerAsset;
         _initializeAuthority(_authorityAddress);
     }

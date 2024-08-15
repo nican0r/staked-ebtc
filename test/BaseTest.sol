@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: ISC
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.25;
 
 import "forge-std/Test.sol";
 import "forge-std/StdMath.sol";

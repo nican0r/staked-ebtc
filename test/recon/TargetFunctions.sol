@@ -1,6 +1,6 @@
 
 // SPDX-License-Identifier: GPL-2.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.25;
 
 import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {BeforeAfter} from "./BeforeAfter.sol";
