@@ -14,10 +14,18 @@ interface IStakedEbtc {
     function donate(uint256 amount) external;
     function syncRewardsAndDistribution() external;
     function rewardsCycleData() external view returns (LinearRewardsErc4626.RewardsCycleData memory);
+    function storedTotalAssets() external view returns (uint256);
+    function totalBalance() external view returns (uint256);
 }
 
 interface IActivePool {
     function claimFeeRecipientCollShares(uint256 _shares) external;
+    function getSystemCollShares() external view returns (uint256);
+    function getFeeRecipientClaimableCollShares() external view returns (uint256);
+}
+
+interface ICdpManager {
+    function getSyncedSystemCollShares() external view returns (uint256);
 }
 
 interface IPriceFed {
@@ -62,12 +70,15 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     IGnosisSafe public constant SAFE = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
     ICollateral public constant COLLATERAL = ICollateral(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IActivePool public constant ACTIVE_POOL = IActivePool(0x6dBDB6D420c110290431E863A1A978AE53F69ebC);
+    ICdpManager public constant CDP_MANAGER = ICdpManager(0xc4cbaE499bb4Ca41E78f52F07f5d98c375711774);
     IPriceFed public constant PRICE_FEED = IPriceFed(0xa9a65B1B1dDa8376527E89985b221B6bfCA1Dc9a);
     IERC20 public constant EBTC_TOKEN = IERC20(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
     address public constant CHAINLINK_KEEPER_REGISTRY = 0x02777053d6764996e594c3E88AF1D58D5363a2e6;
+    uint256 public constant WEEKS_IN_YEAR = 52;
     uint256 public constant BPS = 10000;
+
     IStakedEbtc public immutable STAKED_EBTC;
     ISwapRouter public immutable DEX;
     uint256 public immutable REWARDS_CYCLE_LENGTH;
@@ -104,6 +115,9 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     ////////////////////////////////////////////////////////////////////////////
 
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian, uint256 timestamp);
+    event SwapPathUpdated(bytes oldPath, bytes newPath);
+    event AnnualizedYieldUpdated(uint256 oldYield, uint256 newYield);
+    event SwapSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
 
     ////////////////////////////////////////////////////////////////////////////
     // MODIFIERS
@@ -162,15 +176,18 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
-
+        emit SwapPathUpdated(swapPath, _swapPath);
+        swapPath = _swapPath;
     }
 
-    function setAnnualizedYieldBPS() external onlyGovernance {
-
+    function setAnnualizedYieldBPS(uint256 _annualizedYieldBPS) external onlyGovernance {
+        emit AnnualizedYieldUpdated(annualizedYieldBPS, _annualizedYieldBPS);
+        annualizedYieldBPS = _annualizedYieldBPS;
     }
 
-    function setWwapSlippageBPS()  external onlyGovernance {
-
+    function setSwapSlippageBPS(uint256 _swapSlippageBPS)  external onlyGovernance {
+        emit SwapSlippageUpdated(swapSlippageBPS, _swapSlippageBPS);
+        swapSlippageBPS = _swapSlippageBPS;
     }
 
     /// @dev Pauses the contract, which prevents executing performUpkeep.
@@ -236,15 +253,37 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             return (upkeepNeeded_, performData_);
         }
 
-        uint256 ebtcAmountRequired = 0.01e18;
+        // total ebtc staked
+        uint256 storedTotalAssets = STAKED_EBTC.storedTotalAssets();
+        // total ebtc staked including left over rewards from the previous cycle
+        uint256 totalBalance = STAKED_EBTC.totalBalance();
+        uint256 residual = totalBalance - storedTotalAssets;
+        uint256 ebtcYield = storedTotalAssets * annualizedYieldBPS / (BPS * WEEKS_IN_YEAR);
 
-        // calculate collShareToClaim using annualizedYieldBPS
-        // subtract what is already in steBTC
-        // cap PYS below feeRecipientCollShares
+        if (residual >= ebtcYield) {
+            // there's still enough residual balance in the contract for this week
+            // performUpkeep still needs to be called to update lastProcessingTimestamp
+            // no need to claim additional PYS
+            return (true, abi.encode(0, 0));
+        }
+
+        uint256 ebtcAmountRequired = ebtcYield - residual;
+
+        console2.log("ebtcAmountRequired", ebtcAmountRequired);
+
         uint256 stEthToClaim = ebtcAmountRequired * 1e18 / PRICE_FEED.fetchPrice();
-        uint256 collShareToClaim = COLLATERAL.getSharesByPooledEth(stEthToClaim);
+        uint256 collSharesToClaim = COLLATERAL.getSharesByPooledEth(stEthToClaim);
 
-        return (true, abi.encode(collShareToClaim, ebtcAmountRequired));
+        uint256 collSharesAvailable = _getFeeRecipientCollShares();
+
+        console2.log("collSharesAvailable", collSharesAvailable);
+
+        // cap by collSharesAvailable
+        if (collSharesToClaim > collSharesAvailable) {
+            collSharesToClaim = collSharesAvailable;
+        }
+
+        return (true, abi.encode(collSharesToClaim, ebtcAmountRequired));
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -263,6 +302,12 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     function _lastRewardCycle() private view returns (uint256) {
         LinearRewardsErc4626.RewardsCycleData memory cycleData = STAKED_EBTC.rewardsCycleData();
         return cycleData.lastSync;
+    }
+
+    function _getFeeRecipientCollShares() private returns (uint256) {
+        uint256 pendingShares = ACTIVE_POOL.getSystemCollShares() - CDP_MANAGER.getSyncedSystemCollShares();
+        console2.log("pendingShares", pendingShares);
+        return ACTIVE_POOL.getFeeRecipientClaimableCollShares() + pendingShares;
     }
 
     function _claimFeeRecipientCollShares(uint256 collSharesToClaim) private returns (uint256) {

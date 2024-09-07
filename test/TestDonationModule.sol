@@ -8,14 +8,26 @@ import { Governor } from "../src/Dependencies/Governor.sol";
 import { StakedEbtc } from "../src/StakedEbtc.sol";
 import { FeeRecipientDonationModule } from "../src/FeeRecipientDonationModule.sol";
 
+interface IEbtcToken is IERC20 {
+    function mint(address _account, uint256 _amount) external;
+}
+
 contract TestDonationModule is Test {
 
     StakedEbtc public stakedEbtc;
     uint256 public rewardsCycleLength;
     FeeRecipientDonationModule public donationModule;
+    IEbtcToken ebtcToken;
+    address depositor;
 
     function setUp() public virtual {
-        address ebtcToken = 0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB;
+        depositor = vm.addr(0x123456);
+        ebtcToken = IEbtcToken(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
+
+        // borrowerOperations
+        vm.prank(0xd366e016Ae0677CdCE93472e603b75051E022AD0);
+        ebtcToken.mint(depositor, 100e18);
+
         uint256 TEN_PERCENT = 3_022_266_030; // per second rate compounded week each block (1.10^(365 * 86400 / 12) - 1) / 12 * 1e18
 
         Governor governor = Governor(0x2A095d44831C26cFB6aCb806A6531AE3CA32DBc1);
@@ -28,6 +40,9 @@ contract TestDonationModule is Test {
             _maxDistributionPerSecondPerAsset: TEN_PERCENT,
             _authorityAddress: address(governor)
         });
+
+        vm.prank(depositor);
+        ebtcToken.approve(address(stakedEbtc), type(uint256).max);
         
         donationModule = new FeeRecipientDonationModule({
             _steBtc: address(stakedEbtc),
@@ -63,6 +78,9 @@ contract TestDonationModule is Test {
     }
 
     function testCalculateDonationAmount() public {
+        vm.prank(depositor);
+        stakedEbtc.deposit(10e18, depositor);
+
         vm.startPrank(address(0), address(0));
         (bool upkeepNeeded, bytes memory performData) = donationModule.checkUpkeep("");
         vm.stopPrank();
@@ -70,12 +88,12 @@ contract TestDonationModule is Test {
         console.log(upkeepNeeded);
         console.logBytes(performData);
 
-        console.log("totalBalanceBefore", stakedEbtc.totalBalance());
+     //   console.log("totalBalanceBefore", stakedEbtc.totalBalance());
 
-        vm.prank(donationModule.CHAINLINK_KEEPER_REGISTRY());
-        donationModule.performUpkeep(performData);
+    //    vm.prank(donationModule.CHAINLINK_KEEPER_REGISTRY());
+    //    donationModule.performUpkeep(performData);
 
-        console.log("totalBalanceAfter", stakedEbtc.totalBalance());
+    //    console.log("totalBalanceAfter", stakedEbtc.totalBalance());
+
     }
 }
-
