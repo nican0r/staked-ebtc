@@ -7,7 +7,6 @@ import { AutomationCompatible } from "./Dependencies/AutomationCompatible.sol";
 import { BaseModule } from "./Dependencies/BaseModule.sol";
 import { IGnosisSafe } from "./Dependencies/IGnosisSafe.sol";
 import { LinearRewardsErc4626 } from "./LinearRewardsErc4626.sol";
-import "forge-std/console2.sol";
 
 interface IStakedEbtc {
     function asset() external view returns (address);
@@ -221,17 +220,12 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
             uint256 wstEthAmount = _approveAndWrap(stEthClaimed);
 
-            console2.log("stEthClaimed", stEthClaimed);
-
             uint256 ebtcReceived = _dexTrade(wstEthAmount, ebtcAmountRequired);
-
-            console2.log("ebtcReceived", ebtcReceived);
 
             _donate(ebtcReceived);
         }
 
         // syncRewardsAndDistribution is called elsewhere after REWARDS_CYCLE_LENGTH
-
         lastProcessingTimestamp = block.timestamp;
     }
 
@@ -268,15 +262,9 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         }
 
         uint256 ebtcAmountRequired = ebtcYield - residual;
-
-        console2.log("ebtcAmountRequired", ebtcAmountRequired);
-
         uint256 stEthToClaim = ebtcAmountRequired * 1e18 / PRICE_FEED.fetchPrice();
         uint256 collSharesToClaim = COLLATERAL.getSharesByPooledEth(stEthToClaim);
-
         uint256 collSharesAvailable = _getFeeRecipientCollShares();
-
-        console2.log("collSharesAvailable", collSharesAvailable);
 
         // cap by collSharesAvailable
         if (collSharesToClaim > collSharesAvailable) {
@@ -306,7 +294,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     function _getFeeRecipientCollShares() private returns (uint256) {
         uint256 pendingShares = ACTIVE_POOL.getSystemCollShares() - CDP_MANAGER.getSyncedSystemCollShares();
-        console2.log("pendingShares", pendingShares);
         return ACTIVE_POOL.getFeeRecipientClaimableCollShares() + pendingShares;
     }
 

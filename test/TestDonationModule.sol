@@ -12,6 +12,7 @@ interface IEbtcToken is IERC20 {
     function mint(address _account, uint256 _amount) external;
 }
 
+// forge test --match-contract TestDonationModule --fork-url <RPC_URL> --fork-block-number 20711569
 contract TestDonationModule is Test {
 
     StakedEbtc public stakedEbtc;
@@ -85,15 +86,11 @@ contract TestDonationModule is Test {
         (bool upkeepNeeded, bytes memory performData) = donationModule.checkUpkeep("");
         vm.stopPrank();
 
-        console.log(upkeepNeeded);
-        console.logBytes(performData);
+        uint256 ebtcBefore = stakedEbtc.totalBalance();
 
-     //   console.log("totalBalanceBefore", stakedEbtc.totalBalance());
+        vm.prank(donationModule.CHAINLINK_KEEPER_REGISTRY());
+        donationModule.performUpkeep(performData);
 
-    //    vm.prank(donationModule.CHAINLINK_KEEPER_REGISTRY());
-    //    donationModule.performUpkeep(performData);
-
-    //    console.log("totalBalanceAfter", stakedEbtc.totalBalance());
-
+        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 9618526500564316);
     }
 }
