@@ -6,71 +6,21 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { AutomationCompatible } from "./Dependencies/AutomationCompatible.sol";
 import { BaseModule } from "./Dependencies/BaseModule.sol";
 import { IGnosisSafe } from "./Dependencies/IGnosisSafe.sol";
+import { IActivePool } from "./Dependencies/IActivePool.sol";
+import { ICdpManager } from "./Dependencies/ICdpManager.sol";
+import { IPriceFeed } from "./Dependencies/IPriceFeed.sol";
+import { ICollateral } from "./Dependencies/ICollateral.sol";
+import { ISwapRouter } from "./Dependencies/ISwapRouter.sol";
+import { IWstEth } from "./Dependencies/IWstEth.sol";
+import { IStakedEbtc } from "./IStakedEbtc.sol";
 import { LinearRewardsErc4626 } from "./LinearRewardsErc4626.sol";
-
-interface IStakedEbtc {
-    function asset() external view returns (address);
-    function donate(uint256 amount) external;
-    function syncRewardsAndDistribution() external;
-    function rewardsCycleData() external view returns (LinearRewardsErc4626.RewardsCycleData memory);
-    function storedTotalAssets() external view returns (uint256);
-    function totalBalance() external view returns (uint256);
-}
-
-interface IActivePool {
-    function claimFeeRecipientCollShares(uint256 _shares) external;
-    function getSystemCollShares() external view returns (uint256);
-    function getFeeRecipientClaimableCollShares() external view returns (uint256);
-}
-
-interface ICdpManager {
-    function getSyncedSystemCollShares() external view returns (uint256);
-}
-
-interface IPriceFed {
-    function fetchPrice() external returns (uint256);
-}
-
-interface ICollateral is IERC20 {
-  function getSharesByPooledEth(uint256 _ethAmount) external view returns (uint256);
-}
-
-interface IWstEth is IERC20 {
-    /// @notice Exchanges wstETH to stETH
-    function unwrap(uint256 _wstETHAmount) external returns (uint256);
-
-    /// @notice Exchanges stETH to wstETH
-    function wrap(uint256 _stETHAmount) external returns (uint256);
-
-    /// @notice Get amount of wstETH for a given amount of stETH
-    function getWstETHByStETH(uint256 _stETHAmount) external view returns (uint256);
-
-    /// @notice Get amount of stETH for a given amount of wstETH
-    function getStETHByWstETH(uint256 _stETHAmount) external view returns (uint256);
-}
-
-interface ISwapRouter {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
-    /// @dev Setting `amountIn` to 0 will cause the contract to look up its own balance,
-    /// and swap the entire amount, enabling contracts to send tokens before calling this function.
-    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
-    /// @return amountOut The amount of the received token
-    function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
-}
 
 contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausable {
     IGnosisSafe public constant SAFE = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
     ICollateral public constant COLLATERAL = ICollateral(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IActivePool public constant ACTIVE_POOL = IActivePool(0x6dBDB6D420c110290431E863A1A978AE53F69ebC);
     ICdpManager public constant CDP_MANAGER = ICdpManager(0xc4cbaE499bb4Ca41E78f52F07f5d98c375711774);
-    IPriceFed public constant PRICE_FEED = IPriceFed(0xa9a65B1B1dDa8376527E89985b221B6bfCA1Dc9a);
+    IPriceFeed public constant PRICE_FEED = IPriceFeed(0xa9a65B1B1dDa8376527E89985b221B6bfCA1Dc9a);
     IERC20 public constant EBTC_TOKEN = IERC20(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
