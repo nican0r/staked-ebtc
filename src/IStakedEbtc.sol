@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import { LinearRewardsErc4626 } from "./LinearRewardsErc4626.sol";
 
 interface IStakedEbtc {
+    function REWARDS_CYCLE_LENGTH() external view returns (uint256);
     function asset() external view returns (address);
     function donate(uint256 amount) external;
     function syncRewardsAndDistribution() external;

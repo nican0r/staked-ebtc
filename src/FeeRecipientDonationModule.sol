@@ -60,7 +60,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     // EVENTS
     ////////////////////////////////////////////////////////////////////////////
 
-    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian, uint256 timestamp);
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event SwapPathUpdated(bytes oldPath, bytes newPath);
     event AnnualizedYieldUpdated(uint256 oldYield, uint256 newYield);
     event SwapSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
@@ -71,7 +71,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         uint256 wstEthAmount, 
         uint256 ebtcReceived
     );
-    
+
     ////////////////////////////////////////////////////////////////////////////
     // MODIFIERS
     ////////////////////////////////////////////////////////////////////////////
@@ -109,6 +109,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
         STAKED_EBTC = IStakedEbtc(_steBtc);
         DEX = ISwapRouter(_dex);
+        REWARDS_CYCLE_LENGTH = STAKED_EBTC.REWARDS_CYCLE_LENGTH();
         guardian = _guardian;
         annualizedYieldBPS = _annualizedYieldBPS;
         swapSlippageBPS = _swapSlippageBPS;
@@ -125,7 +126,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         if (_guardian == address(0)) revert ZeroAddress();
         address oldGuardian = guardian;
         guardian = _guardian;
-        emit GuardianUpdated(oldGuardian, _guardian, block.timestamp);
+        emit GuardianUpdated(oldGuardian, _guardian);
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
@@ -203,7 +204,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         cannotExecute
         returns (bool upkeepNeeded_, bytes memory performData_)
     {
-        if (!SAFE.isModuleEnabled(address(this)) && _isReady()) {
+        if (!SAFE.isModuleEnabled(address(this)) || !_isReady()) {
             // NOTE: explicit early return to checking rest of logic if these conditions are not met
             return (upkeepNeeded_, performData_);
         }
