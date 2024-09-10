@@ -50,7 +50,7 @@ contract TestDonationModule is Test {
             _dex:  0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _guardian: 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba,
             _annualizedYieldBPS: 500,
-            _swapSlippageBPS: 100,
+            _minOutBPS: 9900,
             _swapPath: abi.encodePacked(
                 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,
                 uint24(100),
@@ -61,6 +61,8 @@ contract TestDonationModule is Test {
                 ebtcToken
             )
         });
+
+        assertEq(donationModule.REWARDS_CYCLE_LENGTH(), 7 days);
 
         IGnosisSafe safe = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
 
@@ -78,7 +80,7 @@ contract TestDonationModule is Test {
         safe.enableModule(address(donationModule));
     }
 
-    function testCalculateDonationAmount() public {
+    function testEbtcDonation() public {
         vm.prank(depositor);
         stakedEbtc.deposit(10e18, depositor);
 
@@ -92,5 +94,28 @@ contract TestDonationModule is Test {
         donationModule.performUpkeep(performData);
 
         assertEq(stakedEbtc.totalBalance() - ebtcBefore, 9618526500564316);
+        assertEq(donationModule.lastProcessingTimestamp(), block.timestamp);
+
+        vm.startPrank(address(0), address(0));
+        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        assertEq(upkeepNeeded, false);
+
+        vm.warp(block.timestamp + donationModule.REWARDS_CYCLE_LENGTH());
+
+        vm.startPrank(address(0), address(0));
+        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        assertEq(upkeepNeeded, false);
+
+        vm.warp(block.timestamp + donationModule.REWARDS_CYCLE_LENGTH() + 1);
+
+        vm.startPrank(address(0), address(0));
+        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        assertEq(upkeepNeeded, true);  
     }
 }

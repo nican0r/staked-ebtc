@@ -27,6 +27,8 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     address public constant CHAINLINK_KEEPER_REGISTRY = 0x02777053d6764996e594c3E88AF1D58D5363a2e6;
     uint256 public constant WEEKS_IN_YEAR = 52;
     uint256 public constant BPS = 10000;
+    /// @notice cap max slippage at 10% (90% minBPS)
+    uint256 public constant MIN_BPS_LOWER_BOUND = 9000;
 
     IStakedEbtc public immutable STAKED_EBTC;
     ISwapRouter public immutable DEX;
@@ -39,7 +41,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     uint256 public lastProcessingTimestamp;
     uint256 public annualizedYieldBPS;
-    uint256 public swapSlippageBPS;
+    uint256 public minOutBPS;
     bytes public swapPath;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -63,7 +65,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event SwapPathUpdated(bytes oldPath, bytes newPath);
     event AnnualizedYieldUpdated(uint256 oldYield, uint256 newYield);
-    event SwapSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
+    event MinOutUpdated(uint256 oldMinOut, uint256 newMinOut);
     event PerformedUpkeep(
         uint256 collSharesToClaim, 
         uint256 ebtcAmountRequired, 
@@ -100,7 +102,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         address _dex, 
         address _guardian, 
         uint256 _annualizedYieldBPS,
-        uint256 _swapSlippageBPS,
+        uint256 _minOutBPS,
         bytes memory _swapPath
     ) {
         if (_steBtc == address(0)) revert ZeroAddress();
@@ -112,8 +114,10 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         REWARDS_CYCLE_LENGTH = STAKED_EBTC.REWARDS_CYCLE_LENGTH();
         guardian = _guardian;
         annualizedYieldBPS = _annualizedYieldBPS;
-        swapSlippageBPS = _swapSlippageBPS;
         swapPath = _swapPath;
+
+        minOutBPS = _minOutBPS;
+        require(minOutBPS <= BPS && minOutBPS >= MIN_BPS_LOWER_BOUND);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -139,9 +143,11 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         annualizedYieldBPS = _annualizedYieldBPS;
     }
 
-    function setSwapSlippageBPS(uint256 _swapSlippageBPS)  external onlyGovernance {
-        emit SwapSlippageUpdated(swapSlippageBPS, _swapSlippageBPS);
-        swapSlippageBPS = _swapSlippageBPS;
+    function setMinOutBPS(uint256 _minOutBPS)  external onlyGovernance {
+        require(minOutBPS <= BPS && minOutBPS >= MIN_BPS_LOWER_BOUND);
+
+        emit MinOutUpdated(minOutBPS, _minOutBPS);
+        minOutBPS = _minOutBPS;
     }
 
     /// @dev Pauses the contract, which prevents executing performUpkeep.
@@ -245,7 +251,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             // return true if we are executing for the first time
             return true;
         } else {
-            return (block.timestamp - lastProcessingTimestamp) <= REWARDS_CYCLE_LENGTH;
+            return (block.timestamp - lastProcessingTimestamp) > REWARDS_CYCLE_LENGTH;
         }        
     }
 
@@ -304,7 +310,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         params.amountIn = wstEthAmount;
         params.recipient = address(SAFE);
         params.path = swapPath;
-        params.amountOutMinimum = ebtcAmountRequired * swapSlippageBPS / BPS;
+        params.amountOutMinimum = ebtcAmountRequired * minOutBPS / BPS;
 
         uint256 ebtcBefore = EBTC_TOKEN.balanceOf(address(SAFE));
         _checkTransactionAndExecute(
