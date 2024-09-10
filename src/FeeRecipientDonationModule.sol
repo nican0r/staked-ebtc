@@ -52,9 +52,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     error TooSoon(uint256 lastProcessing, uint256 timestamp);
 
-    error NoFeesCollected(uint256 tokenId);
-    error NotOwnedNft(uint256 tokenId);
-
     error ZeroIntervalPeriod();
     error ZeroAddress();
     error ModuleMisconfigured();
@@ -67,7 +64,14 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     event SwapPathUpdated(bytes oldPath, bytes newPath);
     event AnnualizedYieldUpdated(uint256 oldYield, uint256 newYield);
     event SwapSlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
-
+    event PerformedUpkeep(
+        uint256 collSharesToClaim, 
+        uint256 ebtcAmountRequired, 
+        uint256 stEthClaimed, 
+        uint256 wstEthAmount, 
+        uint256 ebtcReceived
+    );
+    
     ////////////////////////////////////////////////////////////////////////////
     // MODIFIERS
     ////////////////////////////////////////////////////////////////////////////
@@ -165,15 +169,22 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
         (uint256 collSharesToClaim, uint256 ebtcAmountRequired) = abi.decode(performData, (uint256, uint256));
 
+        uint256 stEthClaimed;
+        uint256 wstEthAmount;
+        uint256 ebtcReceived;
         if (collSharesToClaim > 0) {
-            uint256 stEthClaimed = _claimFeeRecipientCollShares(collSharesToClaim);
+            stEthClaimed = _claimFeeRecipientCollShares(collSharesToClaim);
 
-            uint256 wstEthAmount = _approveAndWrap(stEthClaimed);
+            wstEthAmount = _approveAndWrap(stEthClaimed);
 
-            uint256 ebtcReceived = _dexTrade(wstEthAmount, ebtcAmountRequired);
+            ebtcReceived = _dexTrade(wstEthAmount, ebtcAmountRequired);
 
             _donate(ebtcReceived);
         }
+
+        emit PerformedUpkeep(
+            collSharesToClaim, ebtcAmountRequired, stEthClaimed, wstEthAmount, ebtcReceived
+        );
 
         // syncRewardsAndDistribution is called elsewhere after REWARDS_CYCLE_LENGTH
         lastProcessingTimestamp = block.timestamp;
