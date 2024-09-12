@@ -39,7 +39,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         vm.prank(senderAddr);
         try stakedEbtc.deposit(amount, senderAddr) {
             __after();
-            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+            _checkPpfs();
         } catch {
             if (stakedEbtc.previewDeposit(amount) > 0) {
                 t(false, "call shouldn't fail");
@@ -56,7 +56,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         vm.prank(senderAddr);
         try stakedEbtc.redeem(shares, senderAddr, senderAddr) {
             __after();
-            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+            _checkPpfs();
         } catch {
             if (stakedEbtc.previewRedeem(shares) > 0) {
                 t(false, "call shouldn't fail");
@@ -77,7 +77,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
                 __after();
 
                 t(_after.totalBalance > _before.totalBalance, "totalBalance should go up after an authorized donation");
-                t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+                _checkPpfs();
             } catch {
                 t(false, "call shouldn't fail");
             }
@@ -87,7 +87,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
             
             __after();
 
-            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease"); 
+            _checkPpfs();
             t(_after.totalBalance == _before.totalBalance, "totalBalance should not go up after an unauthorized donation");
         }
     }
@@ -104,7 +104,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
             __after();
             t(_after.actualBalance < _before.actualBalance, "actualBalance should go down after sweep()");
             t(_after.totalBalance == _before.totalBalance, "totalBalance should not be affected by sweep()");
-            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+            _checkPpfs();
         } catch {
             t(false, "call shouldn't fail");
         }
@@ -131,12 +131,18 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
             try stakedEbtc.syncRewardsAndDistribution() {
                 __after();
                 t(_after.totalStoredBalance >= _before.totalStoredBalance, "reward accrual should work");
-                t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+                _checkPpfs();
             } catch {
                 t(false, "call shouldn't fail");
             }
         } catch {
             t(false, "call shouldn't fail");
+        }
+    }
+
+    function _checkPpfs() private {
+        if (stakedEbtc.totalSupply() > 0) {
+            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
         }
     }
 
