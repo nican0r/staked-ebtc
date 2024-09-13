@@ -23,6 +23,7 @@ abstract contract Setup is BaseSetup {
     address internal defaultGovernance;
     Governor internal governor;
     address[] internal senders;
+    address initialDepositor;
 
     function setup() internal virtual override {
         defaultGovernance = vm.addr(0x123456);
@@ -55,6 +56,16 @@ abstract contract Setup is BaseSetup {
         vm.prank(defaultGovernance);
         mockEbtc.approve(address(stakedEbtc), type(uint256).max);
 
+        initialDepositor = vm.addr(0x1111);
+
+        // initial deposit from governance to prevent edge cases around totalSupply
+        mockEbtc.mint(initialDepositor, 0.01e18);    
+        vm.prank(initialDepositor);
+        mockEbtc.approve(address(stakedEbtc), type(uint256).max);            
+        vm.prank(initialDepositor);
+        stakedEbtc.deposit(0.01e18, initialDepositor);
+
+        senders.push(initialDepositor);
         senders.push(address(0x10000));
         senders.push(address(0x20000));
         senders.push(address(0x30000));

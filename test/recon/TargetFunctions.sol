@@ -6,6 +6,7 @@ import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {BeforeAfter} from "./BeforeAfter.sol";
 import {Properties} from "./Properties.sol";
 import {vm} from "@chimera/Hevm.sol";
+import "forge-std/console2.sol";
 
 abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfter {
     uint256 public constant MAX_EBTC = 1e27;
@@ -15,6 +16,19 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         if (senderAddr == address(0)) {
             senderAddr = msg.sender;
         }
+
+        bool found;
+        for (uint256 i; i < senders.length; i++) {
+            if (senderAddr == senders[i]) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            senders.push(senderAddr);
+        }
+
         // block.timestamp can somtimes fall behind lastRewardsDistribution
         // Is this a medusa issue?
         if (block.timestamp < stakedEbtc.lastRewardsDistribution()) {
@@ -207,7 +221,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         uint256 redeemedAssets = stakedEbtc.redeem(shares, senderAddr, senderAddr);
 
         vm.prank(senderAddr);
-        uint256 depositedAssets = stakedEbtc.mint(shares, senderAddr);
+        stakedEbtc.mint(shares, senderAddr);
+
+        uint256 depositedAssets = stakedEbtc.convertToAssets(shares);
 
         /// @dev restore original state to not break invariants
         vm.prank(senderAddr);
@@ -220,7 +236,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         shares = between(shares, 1, stakedEbtc.convertToShares(MAX_EBTC));
 
         vm.prank(senderAddr);
-        uint256 depositedAssets = stakedEbtc.mint(shares, senderAddr);
+        stakedEbtc.mint(shares, senderAddr);
+
+        uint256 depositedAssets = stakedEbtc.convertToAssets(shares);
 
         vm.prank(senderAddr);
         uint256 withdrawnShares = stakedEbtc.withdraw(depositedAssets, senderAddr, senderAddr);
@@ -232,7 +250,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         shares = between(shares, 1, stakedEbtc.convertToShares(MAX_EBTC));
 
         vm.prank(senderAddr);
-        uint256 depositedAssets = stakedEbtc.mint(shares, senderAddr);
+        stakedEbtc.mint(shares, senderAddr);
+
+        uint256 depositedAssets = stakedEbtc.convertToAssets(shares);
 
         vm.prank(senderAddr);
         uint256 redeemedAssets = stakedEbtc.redeem(shares, senderAddr, senderAddr);
@@ -250,7 +270,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         uint256 redeemedShares = stakedEbtc.withdraw(amount, senderAddr, senderAddr);
 
         vm.prank(senderAddr);
-        uint256 depositedAssets = stakedEbtc.mint(redeemedShares, senderAddr);
+        stakedEbtc.mint(redeemedShares, senderAddr);
+
+        uint256 depositedAssets = stakedEbtc.convertToAssets(redeemedShares);
 
         /// @dev restore original state to not break invariants
         vm.prank(senderAddr);
