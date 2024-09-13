@@ -84,6 +84,12 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         maxDistributionPerSecondPerAsset = _maxDistributionPerSecondPerAsset;
     }
 
+    /// @notice Sets the ```minRewardsPerPeriod``` required to start the next rewards cycle
+    /// @param _minRewards minimum amount of rewards required to start the next rewards cycle
+    function setMinRewardsPerPeriod(uint256 _minRewards) external requiresAuth {
+        _setMinRewardsPerPeriod(_minRewards);
+    }
+
     /// @notice The ```calculateRewardsToDistribute``` function calculates the amount of rewards to distribute based on the rewards cycle data and the time passed
     /// @param _rewardsCycleData The rewards cycle data
     /// @param _deltaTime The time passed since the last rewards distribution

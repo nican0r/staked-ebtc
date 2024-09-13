@@ -27,6 +27,12 @@ abstract contract Properties is Setup, Asserts {
         for (uint256 i; i < senders.length; i++) {
             sumOfUserAssets += stakedEbtc.convertToAssets(stakedEbtc.balanceOf(senders[i]));
         }
-        t(sumOfUserAssets == stakedEbtc.totalAssets(), "sumOfUserAssets == totalAssets");
+
+        if (sumOfUserAssets <= stakedEbtc.totalAssets()) {
+            // account for rounding error
+            t((stakedEbtc.totalAssets() - sumOfUserAssets) < 2, "sumOfUserAssets == totalAssets");
+        } else {
+            t(false, "sumOfUserAssets shouldn't be greater than totalAssets");
+        }
     }
 }
