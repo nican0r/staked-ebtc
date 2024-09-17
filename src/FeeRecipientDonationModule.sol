@@ -23,6 +23,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     IPriceFeed public constant PRICE_FEED = IPriceFeed(0xa9a65B1B1dDa8376527E89985b221B6bfCA1Dc9a);
     IERC20 public constant EBTC_TOKEN = IERC20(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+    /// @notice eBTC techops multisig
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
     address public constant CHAINLINK_KEEPER_REGISTRY = 0x02777053d6764996e594c3E88AF1D58D5363a2e6;
     uint256 public constant WEEKS_IN_YEAR = 52;
