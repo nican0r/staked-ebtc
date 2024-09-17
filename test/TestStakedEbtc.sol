@@ -151,9 +151,7 @@ contract TestStakedEbtc is BaseTest {
         vm.prank(defaultGovernance);
         stakedEbtc.setMinRewardsPerPeriod(1 ether);
 
-        console.log("before", block.timestamp);
         vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
-        console.log("after", block.timestamp);
 
         vm.expectRevert("min rewards");
         stakedEbtc.syncRewardsAndDistribution();
@@ -162,5 +160,120 @@ contract TestStakedEbtc is BaseTest {
         stakedEbtc.donate(1 ether);
 
         stakedEbtc.syncRewardsAndDistribution();
+    }
+
+    function testZeroSupplyDonation() public {
+        // remove initial shares
+        uint256 initShares = stakedEbtc.balanceOf(defaultGovernance);
+
+        vm.prank(defaultGovernance);
+        stakedEbtc.redeem(initShares, defaultGovernance, defaultGovernance);
+
+        // intentionally setting the max distribution low to leave pending rewards in the contract
+        vm.prank(defaultGovernance);
+        stakedEbtc.setMaxDistributionPerSecondPerAsset(3022);
+
+        console.log("totalSupply", stakedEbtc.totalSupply());
+
+        console.log("==== donation (0 totalSupply) ===");
+
+        vm.prank(defaultGovernance);
+        stakedEbtc.donate(1 ether);
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+
+        console.log("==== sync ===");
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+
+        stakedEbtc.syncRewardsAndDistribution();
+
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
+
+        console.log("==== sync after cycle length ===");
+
+        stakedEbtc.syncRewardsAndDistribution();
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
+
+        console.log("==== sync after cycle length (again) ===");
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+
+        console.log("==== deposit ===");
+
+        vm.prank(bob);
+        stakedEbtc.deposit(10 ether, bob);
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+        console.log("pricePerShare", stakedEbtc.pricePerShare());
+
+        console.log("bobAssets", stakedEbtc.convertToAssets(stakedEbtc.balanceOf(bob)));
+        console.log("bobShares", stakedEbtc.balanceOf(bob));
+
+        uint256 bobShares = stakedEbtc.balanceOf(bob);
+        uint256 bobBefore = mockEbtc.balanceOf(bob);
+        
+        console.log("==== redeem (all) ===");
+
+        vm.prank(bob);
+        stakedEbtc.redeem(bobShares, bob, bob);
+
+        uint256 bobAfter = mockEbtc.balanceOf(bob);
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+        console.log("bobBefore", bobBefore);
+        console.log("bobAfter", bobAfter);
+        console.log("bobDiff", bobAfter - bobBefore);
+    
+        console.log("==== deposit ===");
+
+        vm.prank(bob);
+        stakedEbtc.deposit(10 ether, bob);
+
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
+
+        stakedEbtc.syncRewardsAndDistribution();
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+        console.log("pricePerShare", stakedEbtc.pricePerShare());
+
+        console.log("==== redeem (all) ===");
+
+        bobShares = stakedEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.redeem(bobShares, bob, bob);
+
+        console.log("totalSupply", stakedEbtc.totalSupply());
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+        console.log("pricePerShare", stakedEbtc.pricePerShare());
+
+        stakedEbtc.syncRewardsAndDistribution();
+
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
+
+        console.log("==== sync after cycle length ===");
+
+        stakedEbtc.syncRewardsAndDistribution();
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
+
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
+
+        console.log("==== sync after cycle length (again) ===");
+
+        console.log("totalBalance", stakedEbtc.totalBalance());
+        console.log("storedTotalAssets", stakedEbtc.storedTotalAssets());
     }
 }

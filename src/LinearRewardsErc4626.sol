@@ -37,6 +37,8 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     }
 
     /// @notice The rewards cycle data, stored in a single word to save gas
+    /// @notice calculateRewardsToDistribute should be used to get rewardCycleAmount
+    /// because of maxDistributionPerSecondPerAsset
     RewardsCycleData public rewardsCycleData;
 
     /// @notice The timestamp of the last time rewards were distributed
