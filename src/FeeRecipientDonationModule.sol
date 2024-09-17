@@ -164,9 +164,17 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     // PUBLIC: Keeper
     ////////////////////////////////////////////////////////////////////////////
 
+    function manualUpkeep(bytes calldata performData) external whenNotPaused onlyGovernance {
+        _performUpkeep(performData);
+    }
+
     /// @dev Contains the logic that should be executed on-chain when
     ///      `checkUpkeep` returns true.
     function performUpkeep(bytes calldata performData) external override whenNotPaused onlyKeeper {
+        _performUpkeep(performData);
+    }
+
+    function _performUpkeep(bytes calldata performData) internal {
         /// @dev safety check, ensuring onchain module is config
         if (!SAFE.isModuleEnabled(address(this))) revert ModuleMisconfigured();
 
