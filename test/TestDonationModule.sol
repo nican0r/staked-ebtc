@@ -12,7 +12,7 @@ interface IEbtcToken is IERC20 {
     function mint(address _account, uint256 _amount) external;
 }
 
-// forge test --match-contract TestDonationModule --fork-url <RPC_URL> --fork-block-number 20711569
+// forge test --match-contract TestDonationModule --fork-url <RPC_URL> --fork-block-number 20780077
 contract TestDonationModule is Test {
 
     StakedEbtc public stakedEbtc;
@@ -20,9 +20,11 @@ contract TestDonationModule is Test {
     FeeRecipientDonationModule public donationModule;
     IEbtcToken ebtcToken;
     address depositor;
+    address keeper;
 
     function setUp() public virtual {
         depositor = vm.addr(0x123456);
+        keeper = vm.addr(0x234567);
         ebtcToken = IEbtcToken(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
 
         // borrowerOperations
@@ -33,14 +35,7 @@ contract TestDonationModule is Test {
 
         Governor governor = Governor(0x2A095d44831C26cFB6aCb806A6531AE3CA32DBc1);
 
-        stakedEbtc = new StakedEbtc({
-            _underlying: IERC20(ebtcToken),
-            _name: "Staked Ebtc",
-            _symbol: "stEbtc",
-            _rewardsCycleLength: 7 days,
-            _maxDistributionPerSecondPerAsset: TEN_PERCENT,
-            _authorityAddress: address(governor)
-        });
+        stakedEbtc = StakedEbtc(0x5cD81987743A17EFE67bb5BeD89fdE76f34ed884);
 
         vm.prank(depositor);
         ebtcToken.approve(address(stakedEbtc), type(uint256).max);
@@ -68,12 +63,15 @@ contract TestDonationModule is Test {
 
         // high-sec timelock
         vm.startPrank(0xaDDeE229Bd103bb5B10C3CdB595A01c425dd3264);
-        governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.setMaxDistributionPerSecondPerAsset.selector, true);
-        governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.donate.selector, true);
-        governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.sweep.selector, true);
-        governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.setMinRewardsPerPeriod.selector, true);
-        governor.setUserRole(address(safe), 12, true);
+        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMaxDistributionPerSecondPerAsset.selector, true);
+        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.donate.selector, true);
+        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.sweep.selector, true);
+        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMinRewardsPerPeriod.selector, true);
+        governor.setUserRole(address(safe), 13, true);
         vm.stopPrank();
+
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.setKeeper(keeper);
 
         // enable safe module
         vm.prank(address(safe));
@@ -90,10 +88,10 @@ contract TestDonationModule is Test {
 
         uint256 ebtcBefore = stakedEbtc.totalBalance();
 
-        vm.prank(donationModule.CHAINLINK_KEEPER_REGISTRY());
+        vm.prank(donationModule.keeper());
         donationModule.performUpkeep(performData);
 
-        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 9618526500564316);
+        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 9576908003342648);
         assertEq(donationModule.lastProcessingTimestamp(), block.timestamp);
 
         vm.startPrank(address(0), address(0));

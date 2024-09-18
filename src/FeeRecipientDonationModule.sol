@@ -25,7 +25,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     /// @notice eBTC techops multisig
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
-    address public constant CHAINLINK_KEEPER_REGISTRY = 0x02777053d6764996e594c3E88AF1D58D5363a2e6;
     uint256 public constant WEEKS_IN_YEAR = 52;
     uint256 public constant BPS = 10000;
     /// @notice cap max slippage at 10% (90% minBPS)
@@ -39,6 +38,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     // STORAGE
     ////////////////////////////////////////////////////////////////////////////
     address public guardian;
+    address public keeper;
 
     uint256 public lastProcessingTimestamp;
     uint256 public annualizedYieldBPS;
@@ -64,6 +64,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     ////////////////////////////////////////////////////////////////////////////
 
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
+    event KeeperUpdated(address indexed oldKeeper, address indexed newKeeper);
     event SwapPathUpdated(bytes oldPath, bytes newPath);
     event AnnualizedYieldUpdated(uint256 oldYield, uint256 newYield);
     event MinOutUpdated(uint256 oldMinOut, uint256 newMinOut);
@@ -93,7 +94,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     /// @notice Checks whether a call is from the keeper.
     modifier onlyKeeper() {
-        if (msg.sender != CHAINLINK_KEEPER_REGISTRY) revert NotKeeper(msg.sender);
+        if (msg.sender != keeper) revert NotKeeper(msg.sender);
         _;
     }
 
@@ -119,6 +120,8 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
         minOutBPS = _minOutBPS;
         require(minOutBPS <= BPS && minOutBPS >= MIN_BPS_LOWER_BOUND);
+
+        // keeper will be set later
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -132,6 +135,15 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         address oldGuardian = guardian;
         guardian = _guardian;
         emit GuardianUpdated(oldGuardian, _guardian);
+    }
+
+    /// @notice  Updates the keeper address. Only callable by governance.
+    /// @param _keeper Address which will become keeper
+    function setKeeper(address _keeper) external onlyGovernance {
+        if (_keeper == address(0)) revert ZeroAddress();
+        address oldKeeper = _keeper;
+        keeper = _keeper;
+        emit KeeperUpdated(oldKeeper, _keeper);
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
