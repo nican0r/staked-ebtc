@@ -184,10 +184,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     /// @dev Contains the logic that should be executed on-chain when
     ///      `checkUpkeep` returns true.
     function performUpkeep(bytes calldata performData) external override whenNotPaused onlyKeeper {
-        _performUpkeep(performData);
-    }
-
-    function _performUpkeep(bytes calldata performData) internal {
         /// @dev safety check, ensuring onchain module is config
         if (!SAFE.isModuleEnabled(address(this))) revert ModuleMisconfigured();
 
@@ -195,6 +191,10 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             revert TooSoon(lastProcessingTimestamp, block.timestamp);
         }
 
+        _performUpkeep(performData);
+    }
+
+    function _performUpkeep(bytes calldata performData) internal {
         (uint256 collSharesToClaim, uint256 ebtcAmountRequired) = abi.decode(performData, (uint256, uint256));
 
         uint256 stEthClaimed;
@@ -259,6 +259,9 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         if (collSharesToClaim > collSharesAvailable) {
             collSharesToClaim = collSharesAvailable;
         }
+
+        // recaclulate expected ebtcAmount after capping collSharesToClaim
+        ebtcAmountRequired = collSharesToClaim * PRICE_FEED.fetchPrice() / 1e18;
 
         return (true, abi.encode(collSharesToClaim, ebtcAmountRequired));
     }
