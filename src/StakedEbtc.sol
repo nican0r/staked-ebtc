@@ -50,8 +50,9 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         string memory _symbol,
         uint32 _rewardsCycleLength,
         uint256 _maxDistributionPerSecondPerAsset,
-        address _authorityAddress
-    ) LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength) {
+        address _authorityAddress,
+        address _feeRecipient
+    ) LinearRewardsErc4626(ERC20(address(_underlying)), _name, _symbol, _rewardsCycleLength, _feeRecipient) {
         if (_maxDistributionPerSecondPerAsset > type(uint64).max) {
             _maxDistributionPerSecondPerAsset = type(uint64).max;
         }
@@ -88,6 +89,10 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
     /// @param _minRewards minimum amount of rewards required to start the next rewards cycle
     function setMinRewardsPerPeriod(uint256 _minRewards) external requiresAuth {
         _setMinRewardsPerPeriod(_minRewards);
+    }
+
+    function setFeeBPS(uint256 _feeBPS) external requiresAuth {
+        _setFeeBPS(_feeBPS);
     }
 
     /// @notice The ```calculateRewardsToDistribute``` function calculates the amount of rewards to distribute based on the rewards cycle data and the time passed

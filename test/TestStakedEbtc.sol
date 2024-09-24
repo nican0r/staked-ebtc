@@ -162,6 +162,50 @@ contract TestStakedEbtc is BaseTest {
         stakedEbtc.syncRewardsAndDistribution();
     }
 
+    function testMintingFee() public {
+        uint256 initShares = stakedEbtc.balanceOf(defaultGovernance);
+        vm.prank(defaultGovernance);
+        stakedEbtc.redeem(initShares, defaultGovernance, defaultGovernance);
+
+        console2.log(stakedEbtc.totalSupply());
+
+        vm.prank(defaultGovernance);
+        stakedEbtc.setFeeBPS(1000);
+
+        assertEq(stakedEbtc.previewMint(10 ether), 11e18);
+        assertEq(stakedEbtc.previewDeposit(10 ether), 9e18);
+
+        vm.prank(bob);
+        stakedEbtc.deposit(10 ether, bob);
+
+        assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 1 ether);
+
+        uint256 balBefore = mockEbtc.balanceOf(bob);
+        uint256 shares = stakedEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.redeem(shares, bob, bob);
+        uint256 balAfter = mockEbtc.balanceOf(bob);
+
+        assertEq(balAfter - balBefore, 9 ether);
+
+        balBefore = mockEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.mint(10e18, bob);
+        balAfter = mockEbtc.balanceOf(bob);
+
+        assertEq(balBefore - balAfter, 11 ether);
+
+        assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 2 ether);
+
+        balBefore = mockEbtc.balanceOf(bob);
+        shares = stakedEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.redeem(shares, bob, bob);
+        balAfter = mockEbtc.balanceOf(bob);
+
+        assertEq(balAfter - balBefore, 10 ether);
+    }
+
     function testZeroSupplyDonation() public {
         // remove initial shares
         uint256 initShares = stakedEbtc.balanceOf(defaultGovernance);
