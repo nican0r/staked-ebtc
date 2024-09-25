@@ -259,6 +259,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         uint256 assetsToTransfer = _assets - feeAmount;
 
         // Check for rounding error since we round down in previewDeposit.
+        /// @dev calling super.previewDeposit to ignore feeBPS
         require((_shares = super.previewDeposit(assetsToTransfer)) != 0, "ZERO_SHARES");
 
         // Need to transfer before minting or ERC777s could reenter.
