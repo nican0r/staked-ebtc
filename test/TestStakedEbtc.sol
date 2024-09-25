@@ -176,21 +176,21 @@ contract TestStakedEbtc is BaseTest {
         assertEq(stakedEbtc.previewDeposit(10 ether), 9e18);
 
         vm.prank(bob);
-        stakedEbtc.deposit(10 ether, bob);
+        assertEq(stakedEbtc.deposit(10 ether, bob), 9 ether);
 
         assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 1 ether);
 
         uint256 balBefore = mockEbtc.balanceOf(bob);
         uint256 shares = stakedEbtc.balanceOf(bob);
         vm.prank(bob);
-        stakedEbtc.redeem(shares, bob, bob);
+        assertEq(stakedEbtc.redeem(shares, bob, bob), 9 ether);
         uint256 balAfter = mockEbtc.balanceOf(bob);
 
         assertEq(balAfter - balBefore, 9 ether);
 
         balBefore = mockEbtc.balanceOf(bob);
         vm.prank(bob);
-        stakedEbtc.mint(10e18, bob);
+        assertEq(stakedEbtc.mint(10e18, bob), 10 ether);
         balAfter = mockEbtc.balanceOf(bob);
 
         assertEq(balBefore - balAfter, 11 ether);
@@ -200,7 +200,7 @@ contract TestStakedEbtc is BaseTest {
         balBefore = mockEbtc.balanceOf(bob);
         shares = stakedEbtc.balanceOf(bob);
         vm.prank(bob);
-        stakedEbtc.redeem(shares, bob, bob);
+        assertEq(stakedEbtc.redeem(shares, bob, bob), 10 ether);
         balAfter = mockEbtc.balanceOf(bob);
 
         assertEq(balAfter - balBefore, 10 ether);

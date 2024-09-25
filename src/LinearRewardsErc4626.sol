@@ -256,7 +256,20 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         uint256 feeAmount = _computeFee(_assets);
 
-        _shares = super.deposit({ assets: _assets - feeAmount, receiver: _receiver });
+        uint256 assetsToTransfer = _assets - feeAmount;
+
+        // Check for rounding error since we round down in previewDeposit.
+        require((_shares = super.previewDeposit(assetsToTransfer)) != 0, "ZERO_SHARES");
+
+        // Need to transfer before minting or ERC777s could reenter.
+        asset.safeTransferFrom(msg.sender, address(this), assetsToTransfer);
+
+        _mint(_receiver, _shares);
+
+        // Emit _assets transferred from sender including fees
+        emit Deposit(msg.sender, _receiver, _assets, _shares);
+
+        afterDeposit(assetsToTransfer, _shares);
 
         _takeFee(feeAmount);
     }
@@ -276,11 +289,12 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         _mint(_receiver, _shares);
 
-        emit Deposit(msg.sender, _receiver, _assets, _shares);
+        uint256 feeAmount = _computeFee(_assets);
+
+        emit Deposit(msg.sender, _receiver, _assets + feeAmount, _shares);
 
         afterDeposit(_assets, _shares);
 
-        uint256 feeAmount = _computeFee(_assets);
         _takeFee(feeAmount);
     }
 
