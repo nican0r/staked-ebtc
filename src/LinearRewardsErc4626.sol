@@ -25,11 +25,11 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     event SetMinRewardsPerPeriod(uint256 oldMinRewards, uint256 newMinRewards);
 
-    event SetFeeBPS(uint256 oldFeeBPS, uint256 newFeeBPS);
+    event SetMintingFee(uint256 oldMintingFee, uint256 newMintingFee);
 
     event FeeTaken(address indexed recipient, uint256 feeAmount);
 
-    uint256 public constant BPS = 10000;
+    uint256 public constant FEE_PRECISION = 1e8;
 
     /// @notice The precision of all integer calculations
     uint256 public constant PRECISION = 1e18;
@@ -64,8 +64,8 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     /// @notice The minimum amount of rewards required start the next rewards cycle
     uint256 public minRewardsPerPeriod;
 
-    /// @notice The amount of minting fee in BPS
-    uint256 public feeBPS;
+    /// @notice The amount of minting fee in FEE_PRECISION
+    uint256 public mintingFee;
 
     /// @notice The precision of the underlying asset
     uint256 public immutable UNDERLYING_PRECISION;
@@ -100,10 +100,10 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         minRewardsPerPeriod = _minRewards;
     }
 
-    function _setFeeBPS(uint256 _feeBPS) internal {
-        require(_feeBPS <= BPS);
-        emit SetFeeBPS(feeBPS, _feeBPS);
-        feeBPS = _feeBPS;
+    function _setMintingFee(uint256 _mintingFee) internal {
+        require(_mintingFee <= FEE_PRECISION);
+        emit SetMintingFee(mintingFee, _mintingFee);
+        mintingFee = _mintingFee;
     }
 
     function pricePerShare() external view returns (uint256 _pricePerShare) {
@@ -232,11 +232,11 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     }
 
     function _computeFeeRaw(uint256 _assets) private view returns (uint256) {
-        return _assets * feeBPS / BPS;
+        return _assets * mintingFee / FEE_PRECISION;
     }
 
     function _computeFeeTotal(uint256 _assets) private view returns (uint256) {
-        return (_assets * feeBPS) / (feeBPS + BPS);
+        return (_assets * mintingFee) / (mintingFee + FEE_PRECISION);
     }
 
     function _takeFee(uint256 _feeAmount) private {

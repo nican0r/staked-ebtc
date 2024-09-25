@@ -169,8 +169,9 @@ contract TestStakedEbtc is BaseTest {
 
         console2.log(stakedEbtc.totalSupply());
 
+        // 10%
         vm.prank(defaultGovernance);
-        stakedEbtc.setFeeBPS(1000);
+        stakedEbtc.setMintingFee(10000000);
 
         assertEq(stakedEbtc.previewMint(10 ether), 11e18);
         assertEq(stakedEbtc.previewDeposit(11 ether), 10e18);

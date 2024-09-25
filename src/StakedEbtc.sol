@@ -91,8 +91,8 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         _setMinRewardsPerPeriod(_minRewards);
     }
 
-    function setFeeBPS(uint256 _feeBPS) external requiresAuth {
-        _setFeeBPS(_feeBPS);
+    function setMintingFee(uint256 _mintingFee) external requiresAuth {
+        _setMintingFee(_mintingFee);
     }
 
     /// @notice The ```calculateRewardsToDistribute``` function calculates the amount of rewards to distribute based on the rewards cycle data and the time passed
