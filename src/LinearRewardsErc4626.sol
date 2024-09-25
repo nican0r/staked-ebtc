@@ -29,6 +29,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     event FeeTaken(address indexed recipient, uint256 feeAmount);
 
+    /// @notice Fee precision, 1e8 = 100%
     uint256 public constant FEE_PRECISION = 1e8;
 
     /// @notice The precision of all integer calculations

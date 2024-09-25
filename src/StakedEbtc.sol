@@ -91,6 +91,8 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         _setMinRewardsPerPeriod(_minRewards);
     }
 
+    /// @notice Sets the ```mintingFee``` required deposit and mint
+    /// @param _mintingFee the amount of minting fee in FEE_PRECISION
     function setMintingFee(uint256 _mintingFee) external requiresAuth {
         _setMintingFee(_mintingFee);
     }
