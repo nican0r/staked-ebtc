@@ -173,20 +173,20 @@ contract TestStakedEbtc is BaseTest {
         stakedEbtc.setFeeBPS(1000);
 
         assertEq(stakedEbtc.previewMint(10 ether), 11e18);
-        assertEq(stakedEbtc.previewDeposit(10 ether), 9e18);
+        assertEq(stakedEbtc.previewDeposit(11 ether), 10e18);
 
         vm.prank(bob);
-        assertEq(stakedEbtc.deposit(10 ether, bob), 9 ether);
+        assertEq(stakedEbtc.deposit(11 ether, bob), 10 ether);
 
         assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 1 ether);
 
         uint256 balBefore = mockEbtc.balanceOf(bob);
         uint256 shares = stakedEbtc.balanceOf(bob);
         vm.prank(bob);
-        assertEq(stakedEbtc.redeem(shares, bob, bob), 9 ether);
+        assertEq(stakedEbtc.redeem(shares, bob, bob), 10 ether);
         uint256 balAfter = mockEbtc.balanceOf(bob);
 
-        assertEq(balAfter - balBefore, 9 ether);
+        assertEq(balAfter - balBefore, 10 ether);
 
         balBefore = mockEbtc.balanceOf(bob);
         vm.prank(bob);
@@ -206,16 +206,16 @@ contract TestStakedEbtc is BaseTest {
         assertEq(balAfter - balBefore, 10 ether);
 
         vm.prank(bob);
-        assertEq(stakedEbtc.deposit(10 ether, bob), 9 ether);
+        assertEq(stakedEbtc.deposit(11 ether, bob), 10 ether);
 
         assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 3 ether);
 
         balBefore = mockEbtc.balanceOf(bob);
         vm.prank(bob);
-        stakedEbtc.withdraw(9 ether, bob, bob);
+        stakedEbtc.withdraw(10 ether, bob, bob);
         balAfter = mockEbtc.balanceOf(bob);
 
-        assertEq(balAfter - balBefore, 9 ether);
+        assertEq(balAfter - balBefore, 10 ether);
     }
 
     function testZeroSupplyDonation() public {

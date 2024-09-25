@@ -231,8 +231,12 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         totalBalance += amount;
     }
 
-    function _computeFee(uint256 _assets) private view returns (uint256) {
+    function _computeFeeRaw(uint256 _assets) private view returns (uint256) {
         return _assets * feeBPS / BPS;
+    }
+
+    function _computeFeeTotal(uint256 _assets) private view returns (uint256) {
+        return (_assets * feeBPS) / (feeBPS + BPS);
     }
 
     function _takeFee(uint256 _feeAmount) private {
@@ -243,7 +247,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     }
 
     function previewDeposit(uint256 _assets) public view override returns (uint256) {
-        uint256 feeAmount = _computeFee(_assets);
+        uint256 feeAmount = _computeFeeTotal(_assets);
         return super.previewDeposit(_assets - feeAmount);
     }
     
@@ -254,7 +258,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     function deposit(uint256 _assets, address _receiver) public override returns (uint256 _shares) {
         syncRewardsAndDistribution();
 
-        uint256 feeAmount = _computeFee(_assets);
+        uint256 feeAmount = _computeFeeTotal(_assets);
 
         uint256 assetsToTransfer = _assets - feeAmount;
 
@@ -292,7 +296,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         afterDeposit(_assets, _shares);
 
-        uint256 feeAmount = _computeFee(_assets);
+        uint256 feeAmount = _computeFeeRaw(_assets);
 
         /// @dev return _assets + feeAmount
         _assets += feeAmount;
@@ -304,7 +308,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     function previewMint(uint256 shares) public view override returns (uint256) {
         uint256 assets = super.previewMint(shares);
-        return assets + _computeFee(assets);
+        return assets + _computeFeeRaw(assets);
     }
 
     function beforeWithdraw(uint256 amount, uint256 shares) internal virtual override {
