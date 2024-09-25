@@ -174,6 +174,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         vm.prank(senderAddr);
         uint256 shares = stakedEbtc.deposit(amount, senderAddr);
 
+        amount = stakedEbtc.convertToAssets(shares);
+
         vm.prank(senderAddr);
         uint256 redeemedAssets = stakedEbtc.redeem(shares, senderAddr, senderAddr);
 
@@ -185,6 +187,8 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
 
         vm.prank(senderAddr);
         uint256 shares = stakedEbtc.deposit(amount, senderAddr);
+
+        amount = stakedEbtc.convertToAssets(shares);
 
         vm.prank(senderAddr);
         uint256 withdrawnShares = stakedEbtc.withdraw(amount, senderAddr, senderAddr);
@@ -264,7 +268,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         amount = between(amount, 1, MAX_EBTC);
 
         vm.prank(senderAddr);
-        stakedEbtc.deposit(amount, senderAddr);
+        uint256 sharesMinted = stakedEbtc.deposit(amount, senderAddr);
+
+        amount = stakedEbtc.convertToAssets(sharesMinted);
 
         vm.prank(senderAddr);
         uint256 redeemedShares = stakedEbtc.withdraw(amount, senderAddr, senderAddr);
@@ -285,7 +291,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         amount = between(amount, 1, MAX_EBTC);
 
         vm.prank(senderAddr);
-        stakedEbtc.deposit(amount, senderAddr);
+        uint256 sharesMinted = stakedEbtc.deposit(amount, senderAddr);
+
+        amount = stakedEbtc.convertToAssets(sharesMinted);
 
         vm.prank(senderAddr);
         uint256 redeemedShares = stakedEbtc.withdraw(amount, senderAddr, senderAddr);
