@@ -81,6 +81,8 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         uint256 _rewardsCycleLength,
         address _feeRecipient
     ) ERC4626(_underlying, _name, _symbol) {
+        require(_feeRecipient != address(0));
+
         REWARDS_CYCLE_LENGTH = _rewardsCycleLength;
         UNDERLYING_PRECISION = 10 ** _underlying.decimals();
         FEE_RECIPIENT = _feeRecipient;
@@ -234,8 +236,10 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     }
 
     function _takeFee(uint256 _feeAmount) private {
-        asset.safeTransferFrom(msg.sender, FEE_RECIPIENT, _feeAmount);
-        emit FeeTaken(FEE_RECIPIENT, _feeAmount);
+        if (_feeAmount > 0) {
+            asset.safeTransferFrom(msg.sender, FEE_RECIPIENT, _feeAmount);
+            emit FeeTaken(FEE_RECIPIENT, _feeAmount);
+        }
     }
 
     function previewDeposit(uint256 _assets) public view override returns (uint256) {
