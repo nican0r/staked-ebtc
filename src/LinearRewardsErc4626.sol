@@ -290,11 +290,14 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         _mint(_receiver, _shares);
 
+        afterDeposit(_assets, _shares);
+
         uint256 feeAmount = _computeFee(_assets);
 
-        emit Deposit(msg.sender, _receiver, _assets + feeAmount, _shares);
+        /// @dev return _assets + feeAmount
+        _assets += feeAmount;
 
-        afterDeposit(_assets, _shares);
+        emit Deposit(msg.sender, _receiver, _assets, _shares);
 
         _takeFee(feeAmount);
     }

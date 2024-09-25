@@ -190,7 +190,7 @@ contract TestStakedEbtc is BaseTest {
 
         balBefore = mockEbtc.balanceOf(bob);
         vm.prank(bob);
-        assertEq(stakedEbtc.mint(10e18, bob), 10 ether);
+        assertEq(stakedEbtc.mint(10e18, bob), 11 ether);
         balAfter = mockEbtc.balanceOf(bob);
 
         assertEq(balBefore - balAfter, 11 ether);
@@ -204,6 +204,18 @@ contract TestStakedEbtc is BaseTest {
         balAfter = mockEbtc.balanceOf(bob);
 
         assertEq(balAfter - balBefore, 10 ether);
+
+        vm.prank(bob);
+        assertEq(stakedEbtc.deposit(10 ether, bob), 9 ether);
+
+        assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 3 ether);
+
+        balBefore = mockEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.withdraw(9 ether, bob, bob);
+        balAfter = mockEbtc.balanceOf(bob);
+
+        assertEq(balAfter - balBefore, 9 ether);
     }
 
     function testZeroSupplyDonation() public {
