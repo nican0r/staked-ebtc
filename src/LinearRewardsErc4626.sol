@@ -260,21 +260,21 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         uint256 feeAmount = _computeFeeTotal(_assets);
 
-        uint256 assetsToTransfer = _assets - feeAmount;
+        uint256 assetsNoFee = _assets - feeAmount;
 
         // Check for rounding error since we round down in previewDeposit.
         /// @dev calling super.previewDeposit to ignore feeBPS
-        require((_shares = super.previewDeposit(assetsToTransfer)) != 0, "ZERO_SHARES");
+        require((_shares = super.previewDeposit(assetsNoFee)) != 0, "ZERO_SHARES");
 
         // Need to transfer before minting or ERC777s could reenter.
-        asset.safeTransferFrom(msg.sender, address(this), assetsToTransfer);
+        asset.safeTransferFrom(msg.sender, address(this), assetsNoFee);
 
         _mint(_receiver, _shares);
 
         // Emit _assets transferred from sender including fees
         emit Deposit(msg.sender, _receiver, _assets, _shares);
 
-        afterDeposit(assetsToTransfer, _shares);
+        afterDeposit(assetsNoFee, _shares);
 
         _takeFee(feeAmount);
     }
@@ -287,21 +287,21 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
         syncRewardsAndDistribution();
 
         /// @dev calling super.previewMint to ignore feeBPS
-        _assets = super.previewMint(_shares); // No need to check for rounding error, previewMint rounds up.
+        uint256 assetsNoFee = super.previewMint(_shares); // No need to check for rounding error, previewMint rounds up.
 
         // Need to transfer before minting or ERC777s could reenter.
-        asset.safeTransferFrom(msg.sender, address(this), _assets);
+        asset.safeTransferFrom(msg.sender, address(this), assetsNoFee);
 
         _mint(_receiver, _shares);
 
-        afterDeposit(_assets, _shares);
-
-        uint256 feeAmount = _computeFeeRaw(_assets);
+        uint256 feeAmount = _computeFeeRaw(assetsNoFee);
 
         /// @dev return _assets + feeAmount
-        _assets += feeAmount;
+        _assets = assetsNoFee + feeAmount;
 
         emit Deposit(msg.sender, _receiver, _assets, _shares);
+
+        afterDeposit(assetsNoFee, _shares);
 
         _takeFee(feeAmount);
     }
