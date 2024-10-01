@@ -219,6 +219,60 @@ contract TestStakedEbtc is BaseTest {
         assertEq(balAfter - balBefore, 10 ether);
     }
 
+    function testMintingFee_2() public {
+        // deposit an amount to see how many shares they receive
+        uint256 assetBalanceBeforeDeposit = stakedEbtc.asset().balanceOf(alice);
+
+        vm.prank(bob);
+        stakedEbtc.deposit(11 ether, bob); 
+        vm.prank(alice);
+        stakedEbtc.deposit(11 ether, alice); 
+
+        uint256 assetBalanceAfterDeposit = stakedEbtc.asset().balanceOf(alice);
+        uint256 stakedEbtcBalanceAfterDeposit = stakedEbtc.balanceOf(alice);
+
+        // mint an amount using the amount of shares that were received above
+        uint256 assetBalanceBeforeMint = stakedEbtc.asset().balanceOf(alice);
+
+        vm.prank(bob);
+        stakedEbtc.mint(stakedEbtcBalanceAfterDeposit, bob);
+        vm.prank(alice);
+        stakedEbtc.mint(stakedEbtcBalanceAfterDeposit, alice); 
+
+        uint256 assetBalanceAfterMint = stakedEbtc.asset().balanceOf(alice);
+        uint256 stakedEbtcBalanceAfterMint = stakedEbtc.balanceOf(alice);
+
+        // compare the amount received from minting vs depositing
+        assertEq(stakedEbtcBalanceAfterDeposit, stakedEbtcBalanceAfterMint - stakedEbtcBalanceAfterDeposit);
+        // compare price of deposit vs price of minting 
+        assertEq(assetBalanceBeforeDeposit - assetBalanceAfterDeposit, assetBalanceBeforeMint - assetBalanceAfterMint);
+    }
+
+    function testPreviewWithFee() public {
+        // checking if previewMint/previewDeposit return the correct amounts
+        vm.prank(bob);
+        stakedEbtc.deposit(11 ether, bob); 
+        uint256 previewDepositShares = stakedEbtc.previewDeposit(11 ether);
+        vm.prank(alice);
+        stakedEbtc.deposit(11 ether, alice); 
+
+        uint256 actualSharesAfterDeposit = stakedEbtc.balanceOf(alice);
+
+        // mint an amount using the amount of shares that were received above
+        vm.prank(bob);
+        stakedEbtc.mint(11 ether, bob);
+        uint256 previewMintShares = stakedEbtc.previewMint(11 ether);
+        vm.prank(alice);
+        stakedEbtc.mint(11 ether, alice); 
+
+        uint256 actualSharesAfterMint = stakedEbtc.balanceOf(alice);
+        uint256 sharesJustFromMint = actualSharesAfterMint - actualSharesAfterDeposit;
+        console2.log("sharesJustFromMint: %e", sharesJustFromMint);
+
+        assertEq(previewDepositShares, actualSharesAfterDeposit, "deposit preview is incorrect");
+        assertEq(previewMintShares, sharesJustFromMint, "mint preview is incorrect");
+    }
+    
     function testZeroSupplyDonation() public {
         // remove initial shares
         uint256 initShares = stakedEbtc.balanceOf(defaultGovernance);
