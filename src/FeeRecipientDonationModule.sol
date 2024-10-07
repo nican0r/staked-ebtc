@@ -25,6 +25,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     /// @notice eBTC techops multisig
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
+    address public constant TREASURY = 0xD0A7A8B98957b9CD3cFB9c0425AbE44551158e9e;
     uint256 public constant WEEKS_IN_YEAR = 52;
     uint256 public constant BPS = 10000;
     /// @notice cap max slippage at 10% (90% minBPS)
@@ -174,12 +175,23 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // PUBLIC: Keeper
+    // PUBLIC: TechOps
     ////////////////////////////////////////////////////////////////////////////
 
-    function manualUpkeep(bytes calldata performData) external whenNotPaused onlyGovernance {
+    function manualUpkeep(bytes calldata performData) external onlyGovernance {
         _performUpkeep(performData);
     }
+
+    function claimAndSendFeeToTreasury(uint256 collSharesToClaim) external onlyGovernance {
+        uint256 sharesBefore = COLLATERAL.sharesOf(address(SAFE));
+        _claimFeeRecipientCollShares(collSharesToClaim);
+        uint256 sharesAfter = COLLATERAL.sharesOf(address(SAFE));
+        _sendFeeToTreasury(sharesAfter - sharesBefore);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // PUBLIC: Keeper
+    ////////////////////////////////////////////////////////////////////////////
 
     /// @dev Contains the logic that should be executed on-chain when
     ///      `checkUpkeep` returns true.
@@ -297,6 +309,14 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             abi.encodeWithSelector(IActivePool.claimFeeRecipientCollShares.selector, collSharesToClaim)
         );
         return COLLATERAL.balanceOf(address(SAFE)) - stEthBefore;
+    }
+
+    function _sendFeeToTreasury(uint256 sharesToSend) private {
+        _checkTransactionAndExecute(
+            SAFE, 
+            address(COLLATERAL), 
+            abi.encodeWithSelector(ICollateral.transferShares.selector, TREASURY, sharesToSend)
+        );        
     }
 
     function _approveAndWrap(uint256 stEthAmount) private returns (uint256) {

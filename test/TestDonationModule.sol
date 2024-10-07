@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IGnosisSafe } from "../src/Dependencies/IGnosisSafe.sol";
 import { Governor } from "../src/Dependencies/Governor.sol";
+import { ICollateral } from "../src/Dependencies/ICollateral.sol";
 import { StakedEbtc } from "../src/StakedEbtc.sol";
 import { FeeRecipientDonationModule } from "../src/FeeRecipientDonationModule.sol";
 
@@ -19,6 +20,7 @@ contract TestDonationModule is Test {
     uint256 public rewardsCycleLength;
     FeeRecipientDonationModule public donationModule;
     IEbtcToken ebtcToken;
+    ICollateral collateralToken;
     address depositor;
     address keeper;
 
@@ -26,6 +28,7 @@ contract TestDonationModule is Test {
         depositor = vm.addr(0x123456);
         keeper = vm.addr(0x234567);
         ebtcToken = IEbtcToken(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
+        collateralToken = ICollateral(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
 
         // borrowerOperations
         vm.prank(0xd366e016Ae0677CdCE93472e603b75051E022AD0);
@@ -115,5 +118,19 @@ contract TestDonationModule is Test {
         vm.stopPrank();
 
         assertEq(upkeepNeeded, true);  
+    }
+
+    function testSendFeeToTreasury() public {
+        vm.expectRevert(abi.encodeWithSelector(FeeRecipientDonationModule.NotGovernance.selector, depositor));
+        vm.prank(depositor);
+        donationModule.claimAndSendFeeToTreasury(2e18);
+
+        uint256 balBefore = collateralToken.balanceOf(donationModule.TREASURY());
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.claimAndSendFeeToTreasury(2e18);
+        uint256 balAfter = collateralToken.balanceOf(donationModule.TREASURY());
+
+        // max 2 wei diff due to rounding
+        assertApproxEqAbs(balAfter - balBefore, collateralToken.getPooledEthByShares(2e18), 2);
     }
 }
