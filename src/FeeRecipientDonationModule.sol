@@ -15,6 +15,9 @@ import { IWstEth } from "./Dependencies/IWstEth.sol";
 import { IStakedEbtc } from "./IStakedEbtc.sol";
 import { LinearRewardsErc4626 } from "./LinearRewardsErc4626.sol";
 
+// monitoring
+// - actual slippage
+// - gaming total supply (excessive donations)
 contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausable {
     IGnosisSafe public constant SAFE = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
     ICollateral public constant COLLATERAL = ICollateral(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
@@ -182,11 +185,16 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         _performUpkeep(performData);
     }
 
-    function claimAndSendFeeToTreasury(uint256 collSharesToClaim) external onlyGovernance {
-        uint256 sharesBefore = COLLATERAL.sharesOf(address(SAFE));
+    function claimFeeRecipientCollShares(uint256 collSharesToClaim) external onlyGovernance {
         _claimFeeRecipientCollShares(collSharesToClaim);
-        uint256 sharesAfter = COLLATERAL.sharesOf(address(SAFE));
-        _sendFeeToTreasury(sharesAfter - sharesBefore);
+    }
+
+    function sendFeeRecipientCollSharesToTreasury(uint256 collSharesToSend) external onlyGovernance {
+        _sendFeeToTreasury(collSharesToSend);
+    }
+
+    function sendEbtcToTreasury(uint256 amountToSend) external onlyGovernance {
+        _sendEbtcToTreasury(amountToSend);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -316,6 +324,14 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             SAFE, 
             address(COLLATERAL), 
             abi.encodeWithSelector(ICollateral.transferShares.selector, TREASURY, sharesToSend)
+        );        
+    }
+
+    function _sendEbtcToTreasury(uint256 amountToSend) private {
+        _checkTransactionAndExecute(
+            SAFE, 
+            address(EBTC_TOKEN), 
+            abi.encodeWithSelector(IERC20.transfer.selector, TREASURY, amountToSend)
         );        
     }
 

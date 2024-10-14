@@ -47,8 +47,8 @@ contract TestDonationModule is Test {
             _steBtc: address(stakedEbtc),
             _dex:  0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _guardian: 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba,
-            _annualizedYieldBPS: 500,
-            _minOutBPS: 9900,
+            _annualizedYieldBPS: 300, // 3%
+            _minOutBPS: 9900, // 1%
             _swapPath: abi.encodePacked(
                 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,
                 uint24(100),
@@ -94,7 +94,7 @@ contract TestDonationModule is Test {
         vm.prank(donationModule.keeper());
         donationModule.performUpkeep(performData);
 
-        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 9576908003342648);
+        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 5746157211968972);
         assertEq(donationModule.lastProcessingTimestamp(), block.timestamp);
 
         vm.startPrank(address(0), address(0));
@@ -123,14 +123,42 @@ contract TestDonationModule is Test {
     function testSendFeeToTreasury() public {
         vm.expectRevert(abi.encodeWithSelector(FeeRecipientDonationModule.NotGovernance.selector, depositor));
         vm.prank(depositor);
-        donationModule.claimAndSendFeeToTreasury(2e18);
+        donationModule.claimFeeRecipientCollShares(2e18);
 
-        uint256 balBefore = collateralToken.balanceOf(donationModule.TREASURY());
+        uint256 sharesBefore = collateralToken.sharesOf(address(donationModule.SAFE()));
         vm.prank(donationModule.GOVERNANCE());
-        donationModule.claimAndSendFeeToTreasury(2e18);
-        uint256 balAfter = collateralToken.balanceOf(donationModule.TREASURY());
+        donationModule.claimFeeRecipientCollShares(2e18);
+        uint256 sharesAfter = collateralToken.sharesOf(address(donationModule.SAFE()));
 
-        // max 2 wei diff due to rounding
-        assertApproxEqAbs(balAfter - balBefore, collateralToken.getPooledEthByShares(2e18), 2);
+        uint256 sharesDiff = sharesAfter - sharesBefore;
+
+        vm.expectRevert(abi.encodeWithSelector(FeeRecipientDonationModule.NotGovernance.selector, depositor));
+        vm.prank(depositor);
+        donationModule.sendFeeRecipientCollSharesToTreasury(sharesDiff);
+
+        sharesBefore = collateralToken.sharesOf(donationModule.TREASURY());
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.sendFeeRecipientCollSharesToTreasury(sharesDiff);
+        sharesAfter = collateralToken.sharesOf(donationModule.TREASURY());
+
+        assertEq(sharesAfter - sharesBefore, 2e18);
+    }
+
+    function testSendEbtcToTreasury() public {
+        address safeAddr = address(donationModule.SAFE());
+
+        vm.prank(depositor);
+        ebtcToken.transfer(safeAddr, 1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(FeeRecipientDonationModule.NotGovernance.selector, depositor));
+        vm.prank(depositor);
+        donationModule.sendEbtcToTreasury(1e18);   
+
+        uint256 balBefore = ebtcToken.balanceOf(donationModule.TREASURY());
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.sendEbtcToTreasury(1e18);   
+        uint256 balAfter = ebtcToken.balanceOf(donationModule.TREASURY());
+
+        assertEq(balAfter - balBefore, 1e18);
     }
 }
