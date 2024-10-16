@@ -145,7 +145,9 @@ contract TestStakedEbtc is BaseTest {
         vm.prank(defaultGovernance);
         stakedEbtc.redeem(initShares, defaultGovernance, defaultGovernance);
 
-        console2.log(stakedEbtc.totalSupply());
+        vm.expectRevert("max minting fee");
+        vm.prank(defaultGovernance);
+        stakedEbtc.setMintingFee(20000000);
 
         // 10%
         vm.prank(defaultGovernance);

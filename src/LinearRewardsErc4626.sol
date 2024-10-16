@@ -27,6 +27,9 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
     event FeeTaken(address indexed recipient, uint256 feeAmount);
 
+    /// @notice max minting fee 10%
+    uint256 public constant MAX_MINTING_FEE = 1e7;
+
     /// @notice Fee precision, 1e8 = 100%
     uint256 public constant FEE_PRECISION = 1e8;
 
@@ -92,7 +95,7 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     }
 
     function _setMintingFee(uint256 _mintingFee) internal {
-        require(_mintingFee <= FEE_PRECISION);
+        require(_mintingFee <= MAX_MINTING_FEE, "max minting fee");
         emit SetMintingFee(mintingFee, _mintingFee);
         mintingFee = _mintingFee;
     }

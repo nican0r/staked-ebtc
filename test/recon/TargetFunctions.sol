@@ -48,8 +48,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
     }
 
     function setMintingFee(uint256 mintingFee) public prepare {
-        // test with 50% max fee
-        mintingFee = between(mintingFee, 0, stakedEbtc.FEE_PRECISION() / 2);
+        mintingFee = between(mintingFee, 0, stakedEbtc.MAX_MINTING_FEE());
 
         vm.prank(defaultGovernance);
         try stakedEbtc.setMintingFee(mintingFee) {
