@@ -37,8 +37,30 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         _;
     }
 
+    function _checkPpfs() private {
+        if (stakedEbtc.totalSupply() > 0) {
+            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
+        }
+    }
+
     function setSenderAddr(address newAddr) internal {
         senderAddr = newAddr;
+    }
+
+    function setMintingFee(uint256 mintingFee) internal {
+        // test with 50% max fee
+        mintingFee = between(mintingFee, 0, stakedEbtc.FEE_PRECISION() / 2);
+
+        stakedEbtc.setMintingFee(mintingFee);
+    }
+
+    function sync_rewards_and_distribution_should_never_revert(uint256 ts) public prepare {
+        ts = between(ts, 0, 500 * 52 weeks);
+        vm.warp(block.timestamp + ts);
+        try stakedEbtc.syncRewardsAndDistribution() {
+        } catch {
+            t(false, "syncRewardsAndDistribution should not revert");
+        }
     }
 
     function deposit(uint256 amount) public prepare {
@@ -151,20 +173,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
             }
         } catch {
             t(false, "call shouldn't fail");
-        }
-    }
-
-    function _checkPpfs() private {
-        if (stakedEbtc.totalSupply() > 0) {
-            t(_after.ppfs >= _before.ppfs, "ppfs should never decrease");
-        }
-    }
-
-    function sync_rewards_and_distribution_should_never_revert(uint256 ts) public prepare {
-        ts = between(ts, 0, 500 * 52 weeks);
-        try stakedEbtc.syncRewardsAndDistribution() {
-        } catch {
-            t(false, "syncRewardsAndDistribution should not revert");
         }
     }
 

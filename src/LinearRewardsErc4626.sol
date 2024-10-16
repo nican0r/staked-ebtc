@@ -23,8 +23,6 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     using SafeCastLib for *;
     using SafeTransferLib for ERC20;
 
-    event SetMinRewardsPerPeriod(uint256 oldMinRewards, uint256 newMinRewards);
-
     event SetMintingFee(uint256 oldMintingFee, uint256 newMintingFee);
 
     event FeeTaken(address indexed recipient, uint256 feeAmount);
@@ -62,9 +60,6 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
     /// @notice The total amount of assets including recent donations
     uint256 public totalBalance;
 
-    /// @notice The minimum amount of rewards required start the next rewards cycle
-    uint256 public minRewardsPerPeriod;
-
     /// @notice The amount of minting fee in FEE_PRECISION
     uint256 public mintingFee;
 
@@ -94,11 +89,6 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         // initialize lastRewardsDistribution value
         _distributeRewards();
-    }
-
-    function _setMinRewardsPerPeriod(uint256 _minRewards) internal {
-        emit SetMinRewardsPerPeriod(minRewardsPerPeriod, _minRewards);
-        minRewardsPerPeriod = _minRewards;
     }
 
     function _setMintingFee(uint256 _mintingFee) internal {
@@ -170,8 +160,6 @@ abstract contract LinearRewardsErc4626 is ERC4626 {
 
         // Calculate rewards for next cycle
         uint256 _newRewards = totalBalance - storedTotalAssets;
-
-        require(_newRewards >= minRewardsPerPeriod, "min rewards");
 
         // Calculate the next cycle end, this keeps cycles at the same time regardless of when sync is called
         uint40 _cycleEnd = (((_timestamp + REWARDS_CYCLE_LENGTH) / REWARDS_CYCLE_LENGTH) * REWARDS_CYCLE_LENGTH)

@@ -85,12 +85,6 @@ contract StakedEbtc is LinearRewardsErc4626, AuthNoOwner {
         maxDistributionPerSecondPerAsset = _maxDistributionPerSecondPerAsset;
     }
 
-    /// @notice Sets the ```minRewardsPerPeriod``` required to start the next rewards cycle
-    /// @param _minRewards minimum amount of rewards required to start the next rewards cycle
-    function setMinRewardsPerPeriod(uint256 _minRewards) external requiresAuth {
-        _setMinRewardsPerPeriod(_minRewards);
-    }
-
     /// @notice Sets the ```mintingFee``` required deposit and mint
     /// @param _mintingFee the amount of minting fee in FEE_PRECISION
     function setMintingFee(uint256 _mintingFee) external requiresAuth {

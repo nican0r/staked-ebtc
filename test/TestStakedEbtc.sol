@@ -140,28 +140,6 @@ contract TestStakedEbtc is BaseTest {
         assertEq(mockEbtc.balanceOf(alice) - senderBalanceBefore, 10 ether);
     }
 
-    function testMinRewardsPerPeriod() public {
-        vm.prank(bob);
-        stakedEbtc.deposit(10 ether, bob);
-
-        vm.expectRevert("Auth: UNAUTHORIZED");
-        vm.prank(alice);
-        stakedEbtc.setMinRewardsPerPeriod(1 ether);
-
-        vm.prank(defaultGovernance);
-        stakedEbtc.setMinRewardsPerPeriod(1 ether);
-
-        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
-
-        vm.expectRevert("min rewards");
-        stakedEbtc.syncRewardsAndDistribution();
-
-        vm.prank(defaultGovernance);
-        stakedEbtc.donate(1 ether);
-
-        stakedEbtc.syncRewardsAndDistribution();
-    }
-
     function testMintingFee() public {
         uint256 initShares = stakedEbtc.balanceOf(defaultGovernance);
         vm.prank(defaultGovernance);

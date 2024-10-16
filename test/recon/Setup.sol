@@ -54,9 +54,6 @@ abstract contract Setup is BaseSetup {
         governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.sweep.selector, true);
 
         vm.prank(defaultGovernance);
-        governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.setMinRewardsPerPeriod.selector, true);
-
-        vm.prank(defaultGovernance);
         governor.setRoleCapability(12, address(stakedEbtc), StakedEbtc.setMintingFee.selector, true);
 
         vm.prank(defaultGovernance);
