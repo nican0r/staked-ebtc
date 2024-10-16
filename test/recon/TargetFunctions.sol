@@ -47,11 +47,15 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         senderAddr = newAddr;
     }
 
-    function setMintingFee(uint256 mintingFee) internal {
+    function setMintingFee(uint256 mintingFee) public prepare {
         // test with 50% max fee
         mintingFee = between(mintingFee, 0, stakedEbtc.FEE_PRECISION() / 2);
 
-        stakedEbtc.setMintingFee(mintingFee);
+        vm.prank(defaultGovernance);
+        try stakedEbtc.setMintingFee(mintingFee) {
+        } catch {
+            t(false, "call shouldn't fail");
+        }
     }
 
     function sync_rewards_and_distribution_should_never_revert(uint256 ts) public prepare {
