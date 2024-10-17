@@ -60,8 +60,6 @@ contract TestDonationModule is Test {
             )
         });
 
-        assertEq(donationModule.REWARDS_CYCLE_LENGTH(), 7 days);
-
         IGnosisSafe safe = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
 
         // high-sec timelock
@@ -69,7 +67,6 @@ contract TestDonationModule is Test {
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMaxDistributionPerSecondPerAsset.selector, true);
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.donate.selector, true);
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.sweep.selector, true);
-        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMinRewardsPerPeriod.selector, true);
         governor.setUserRole(address(safe), 13, true);
         vm.stopPrank();
 
@@ -97,13 +94,8 @@ contract TestDonationModule is Test {
         assertEq(stakedEbtc.totalBalance() - ebtcBefore, 5746157211968972);
         assertEq(donationModule.lastProcessingTimestamp(), block.timestamp);
 
-        vm.startPrank(address(0), address(0));
-        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
-        vm.stopPrank();
-
-        assertEq(upkeepNeeded, false);
-
-        vm.warp(block.timestamp + donationModule.REWARDS_CYCLE_LENGTH());
+        // syncRewardsAndDistribution here does not advance lastSync
+        stakedEbtc.syncRewardsAndDistribution();
 
         vm.startPrank(address(0), address(0));
         (upkeepNeeded, performData) = donationModule.checkUpkeep("");
@@ -111,13 +103,22 @@ contract TestDonationModule is Test {
 
         assertEq(upkeepNeeded, false);
 
-        vm.warp(block.timestamp + donationModule.REWARDS_CYCLE_LENGTH() + 1);
+        vm.warp(block.timestamp + stakedEbtc.REWARDS_CYCLE_LENGTH() + 1);
 
         vm.startPrank(address(0), address(0));
         (upkeepNeeded, performData) = donationModule.checkUpkeep("");
         vm.stopPrank();
 
-        assertEq(upkeepNeeded, true);  
+        assertEq(upkeepNeeded, false);
+
+        // syncRewardsAndDistribution here advances lastSync
+        stakedEbtc.syncRewardsAndDistribution();
+
+        vm.startPrank(address(0), address(0));
+        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        assertEq(upkeepNeeded, true);
     }
 
     function testSendFeeToTreasury() public {

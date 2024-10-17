@@ -36,7 +36,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     IStakedEbtc public immutable STAKED_EBTC;
     ISwapRouter public immutable DEX;
-    uint256 public immutable REWARDS_CYCLE_LENGTH;
 
     ////////////////////////////////////////////////////////////////////////////
     // STORAGE
@@ -117,7 +116,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
         STAKED_EBTC = IStakedEbtc(_steBtc);
         DEX = ISwapRouter(_dex);
-        REWARDS_CYCLE_LENGTH = STAKED_EBTC.REWARDS_CYCLE_LENGTH();
         guardian = _guardian;
         annualizedYieldBPS = _annualizedYieldBPS;
         swapPath = _swapPath;
@@ -291,12 +289,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     ////////////////////////////////////////////////////////////////////////////
 
     function _isReady() private view returns (bool) {
-        if (lastProcessingTimestamp == 0) {
-            // return true if we are executing for the first time
-            return true;
-        } else {
-            return (block.timestamp - lastProcessingTimestamp) > REWARDS_CYCLE_LENGTH;
-        }        
+        return lastProcessingTimestamp < _lastRewardCycle();
     }
 
     function _lastRewardCycle() private view returns (uint256) {
