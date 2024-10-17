@@ -74,13 +74,41 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
         vm.prank(senderAddr);
         mockEbtc.approve(address(stakedEbtc), type(uint256).max);
 
+        uint256 previewShares = stakedEbtc.previewDeposit(amount);
+
         __before();
         vm.prank(senderAddr);
-        try stakedEbtc.deposit(amount, senderAddr) {
+        try stakedEbtc.deposit(amount, senderAddr) returns (uint256 actualShares) {
+            t(previewShares == actualShares, "previewShares == actualShares");
             __after();
             _checkPpfs();
         } catch {
-            if (stakedEbtc.previewDeposit(amount) > 0) {
+            if (previewShares > 0) {
+                t(false, "call shouldn't fail");
+            }
+        }
+
+        __after();
+    }
+
+    function mint(uint256 shares) public prepare {
+        shares = between(shares, 1, MAX_EBTC / 10);
+
+        uint256 previewAmount = stakedEbtc.previewMint(shares);
+
+        mockEbtc.mint(senderAddr, previewAmount);
+
+        vm.prank(senderAddr);
+        mockEbtc.approve(address(stakedEbtc), type(uint256).max);
+
+        __before();
+        vm.prank(senderAddr);
+        try stakedEbtc.mint(shares, senderAddr) returns (uint256 actualAmount) {
+            t(previewAmount == actualAmount, "previewAmount == actualAmount");
+            __after();
+            _checkPpfs();
+        } catch {
+            if (previewAmount > 0) {
                 t(false, "call shouldn't fail");
             }
         }
@@ -91,13 +119,34 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, BeforeAfte
     function redeem(uint256 shares) public prepare {
         shares = between(shares, 0, stakedEbtc.balanceOf(senderAddr));
 
+        uint256 previewAmount = stakedEbtc.previewRedeem(shares);
+
         __before();
         vm.prank(senderAddr);
-        try stakedEbtc.redeem(shares, senderAddr, senderAddr) {
+        try stakedEbtc.redeem(shares, senderAddr, senderAddr) returns (uint256 actualAmount) {
+            t(previewAmount == actualAmount, "previewAmount == actualAmount");
             __after();
             _checkPpfs();
         } catch {
             if (stakedEbtc.previewRedeem(shares) > 0) {
+                t(false, "call shouldn't fail");
+            }
+        }
+    }
+
+    function withdraw(uint256 amount) public prepare {
+        amount = between(amount, 0, stakedEbtc.convertToAssets(stakedEbtc.balanceOf(senderAddr)));
+
+        uint256 previewShares = stakedEbtc.previewWithdraw(amount);
+
+        __before();
+        vm.prank(senderAddr);
+        try stakedEbtc.withdraw(amount, senderAddr, senderAddr) returns (uint256 actualShares) {
+            t(previewShares == actualShares, "previewShares == actualShares");
+            __after();
+            _checkPpfs();
+        } catch {
+            if (stakedEbtc.previewWithdraw(amount) > 0) {
                 t(false, "call shouldn't fail");
             }
         }

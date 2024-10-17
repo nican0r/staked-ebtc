@@ -55,4 +55,73 @@ contract TestMintingFeeFuzz is BaseTest {
         uint256 rawFee = (_assets * mintingFee) / (mintingFee + stakedEbtc.FEE_PRECISION());
         assertGt(rawFee, 0, "asset can be minted for no fee");
     }
+
+    function testFeeOnDeposit(uint256 mintingFee, uint256 depositAmount) public {
+        mintingFee = bound(mintingFee, 1000000, 10000000); // bound fee from 1-10%
+        depositAmount = bound(depositAmount, 1, 1000 ether);
+
+        console.log("totalSupply", stakedEbtc.totalSupply());
+
+        assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 0);
+
+        vm.prank(defaultGovernance);
+        stakedEbtc.setMintingFee(mintingFee);
+
+        uint256 previewShares = stakedEbtc.previewDeposit(depositAmount);
+        uint256 previewAmount = stakedEbtc.convertToAssets(previewShares);
+
+        uint256 totalBalBefore = mockEbtc.balanceOf(address(stakedEbtc));
+        vm.prank(bob);
+        stakedEbtc.deposit(depositAmount, bob);       
+        uint256 totalBalAfter = mockEbtc.balanceOf(address(stakedEbtc));
+
+        uint256 shares = stakedEbtc.balanceOf(bob);
+
+        uint256 balBefore = mockEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.redeem(shares, bob, bob);
+        uint256 balAfter = mockEbtc.balanceOf(bob);
+
+        uint256 computedFee = (depositAmount * mintingFee) / (mintingFee + stakedEbtc.FEE_PRECISION());
+        uint256 realFee = previewAmount * mintingFee / stakedEbtc.FEE_PRECISION();
+        uint256 feeBalance = mockEbtc.balanceOf(defaultFeeRecipient);
+
+        // rounding error from computed vs actual should never exceed 1 wei
+        assertApproxEqAbs(computedFee, realFee, 1);
+        assertEq(balAfter - balBefore, previewAmount);
+        assertEq(previewAmount, totalBalAfter - totalBalBefore);
+        assertEq(computedFee, feeBalance);
+        assertEq(previewAmount + feeBalance, depositAmount);
+    }
+
+    function testFeeOnMint(uint256 mintingFee, uint256 mintAmount) public {
+        mintingFee = bound(mintingFee, 1000000, 10000000); // bound fee from 1-10%
+        mintAmount = bound(mintAmount, 1, 500 ether);
+
+        assertEq(mockEbtc.balanceOf(defaultFeeRecipient), 0);
+
+        vm.prank(defaultGovernance);
+        stakedEbtc.setMintingFee(mintingFee);
+
+        uint256 previewAmount = stakedEbtc.previewMint(mintAmount);
+
+        uint256 totalBalBefore = mockEbtc.balanceOf(address(stakedEbtc));
+        vm.prank(bob);
+        stakedEbtc.mint(mintAmount, bob);       
+        uint256 totalBalAfter = mockEbtc.balanceOf(address(stakedEbtc));
+
+        uint256 shares = stakedEbtc.balanceOf(bob);
+
+        uint256 balBefore = mockEbtc.balanceOf(bob);
+        vm.prank(bob);
+        stakedEbtc.redeem(shares, bob, bob);
+        uint256 balAfter = mockEbtc.balanceOf(bob);
+
+        uint256 feeBalance = mockEbtc.balanceOf(defaultFeeRecipient);
+        uint256 computedFee = (previewAmount * mintingFee) / (mintingFee + stakedEbtc.FEE_PRECISION());
+
+        // rounding error from computed vs actual should never exceed 1 wei
+        assertApproxEqAbs(feeBalance, computedFee, 1);
+        assertEq(balAfter - balBefore + feeBalance, previewAmount);
+    }
 }
