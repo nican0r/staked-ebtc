@@ -276,10 +276,10 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         // cap by collSharesAvailable
         if (collSharesToClaim > collSharesAvailable) {
             collSharesToClaim = collSharesAvailable;
-        }
 
-        // recaclulate expected ebtcAmount after capping collSharesToClaim
-        ebtcAmountRequired = collSharesToClaim * PRICE_FEED.fetchPrice() / 1e18;
+            // recaclulate expected ebtcAmount after capping collSharesToClaim
+            ebtcAmountRequired = COLLATERAL.getPooledEthByShares(collSharesToClaim) * PRICE_FEED.fetchPrice() / 1e18;
+        }
 
         return (true, abi.encode(collSharesToClaim, ebtcAmountRequired));
     }
