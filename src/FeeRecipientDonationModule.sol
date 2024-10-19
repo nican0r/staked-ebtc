@@ -33,6 +33,8 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     uint256 public constant BPS = 10000;
     /// @notice cap max slippage at 10% (90% minBPS)
     uint256 public constant MIN_BPS_LOWER_BOUND = 9000;
+    /// @notice cap annualized yield at 20%
+    uint256 public constant MAX_YIELD_BPS = 2000;
 
     IStakedEbtc public immutable STAKED_EBTC;
     ISwapRouter public immutable DEX;
@@ -154,6 +156,8 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     function setAnnualizedYieldBPS(uint256 _annualizedYieldBPS) external onlyGovernance {
+        require(_annualizedYieldBPS <= MAX_YIELD_BPS);
+
         emit AnnualizedYieldUpdated(annualizedYieldBPS, _annualizedYieldBPS);
         annualizedYieldBPS = _annualizedYieldBPS;
     }

@@ -121,6 +121,46 @@ contract TestDonationModule is Test {
         assertEq(upkeepNeeded, true);
     }
 
+    function _getFeeRecipientCollShares() private returns (uint256) {
+        uint256 pendingShares = donationModule.ACTIVE_POOL().getSystemCollShares() - 
+            donationModule.CDP_MANAGER().getSyncedSystemCollShares();
+        return donationModule.ACTIVE_POOL().getFeeRecipientClaimableCollShares() + pendingShares;
+    }
+
+    function testEbtcDonationCapped() public {
+        vm.prank(depositor);
+        stakedEbtc.deposit(10e18, depositor);
+
+        uint256 sharesAvailable = _getFeeRecipientCollShares();
+
+        vm.startPrank(address(0), address(0));
+        (bool upkeepNeeded, bytes memory performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        (uint256 collSharesToClaim,) = abi.decode(performData, (uint256, uint256));
+
+        // Shares to claim is less than shares available
+        assertLt(collSharesToClaim, sharesAvailable);
+
+        // Transfer 99% of collShares to treasury
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.claimFeeRecipientCollShares(sharesAvailable * 99 / 100);
+
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.sendFeeRecipientCollSharesToTreasury(sharesAvailable * 99 / 100);
+
+        sharesAvailable = _getFeeRecipientCollShares();
+
+        vm.startPrank(address(0), address(0));
+        (upkeepNeeded, performData) = donationModule.checkUpkeep("");
+        vm.stopPrank();
+
+        (collSharesToClaim,) = abi.decode(performData, (uint256, uint256));
+
+        // Shares to claim should be capped at sharesAvailable
+        assertEq(collSharesToClaim, sharesAvailable);
+    }
+
     function testSendFeeToTreasury() public {
         vm.expectRevert(abi.encodeWithSelector(FeeRecipientDonationModule.NotGovernance.selector, depositor));
         vm.prank(depositor);
