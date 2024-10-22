@@ -273,6 +273,9 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             return (upkeepNeeded_, performData_);
         }
 
+        // validate price
+        _validateSwapPath(swapPath);
+
         // total ebtc staked
         uint256 storedTotalAssets = STAKED_EBTC.storedTotalAssets();
         // total ebtc staked including left over rewards from the previous cycle
