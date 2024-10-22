@@ -13,7 +13,7 @@ interface IEbtcToken is IERC20 {
     function mint(address _account, uint256 _amount) external;
 }
 
-// forge test --match-contract TestDonationModule --fork-url <RPC_URL> --fork-block-number 20780077
+// forge test --match-contract TestDonationModule --fork-url <RPC_URL> --fork-block-number 21022477
 contract TestDonationModule is Test {
 
     StakedEbtc public stakedEbtc;
@@ -29,23 +29,8 @@ contract TestDonationModule is Test {
         keeper = vm.addr(0x234567);
         ebtcToken = IEbtcToken(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
         collateralToken = ICollateral(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
-
-        // borrowerOperations
-        vm.prank(0xd366e016Ae0677CdCE93472e603b75051E022AD0);
-        ebtcToken.mint(depositor, 100e18);
-
-        uint256 TEN_PERCENT = 3_022_266_030; // per second rate compounded week each block (1.10^(365 * 86400 / 12) - 1) / 12 * 1e18
-
-        Governor governor = Governor(0x2A095d44831C26cFB6aCb806A6531AE3CA32DBc1);
-
-        stakedEbtc = StakedEbtc(0x5cD81987743A17EFE67bb5BeD89fdE76f34ed884);
-
-        vm.prank(depositor);
-        ebtcToken.approve(address(stakedEbtc), type(uint256).max);
         
         donationModule = new FeeRecipientDonationModule({
-            _steBtc: address(stakedEbtc),
-            _dex:  0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _guardian: 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba,
             _annualizedYieldBPS: 300, // 3%
             _minOutBPS: 9900, // 1%
@@ -60,12 +45,24 @@ contract TestDonationModule is Test {
             )
         });
 
+        stakedEbtc = StakedEbtc(address(donationModule.STAKED_EBTC()));
+
+        // borrowerOperations
+        vm.prank(0xd366e016Ae0677CdCE93472e603b75051E022AD0);
+        ebtcToken.mint(depositor, 100e18);
+
+        Governor governor = Governor(0x2A095d44831C26cFB6aCb806A6531AE3CA32DBc1);
+
+        vm.prank(depositor);
+        ebtcToken.approve(address(stakedEbtc), type(uint256).max);
+
         IGnosisSafe safe = IGnosisSafe(0x2CEB95D4A67Bf771f1165659Df3D11D8871E906f);
 
         // high-sec timelock
         vm.startPrank(0xaDDeE229Bd103bb5B10C3CdB595A01c425dd3264);
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMaxDistributionPerSecondPerAsset.selector, true);
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.donate.selector, true);
+        governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.setMintingFee.selector, true);
         governor.setRoleCapability(13, address(stakedEbtc), StakedEbtc.sweep.selector, true);
         governor.setUserRole(address(safe), 13, true);
         vm.stopPrank();
@@ -79,8 +76,10 @@ contract TestDonationModule is Test {
     }
 
     function testEbtcDonation() public {
+        uint256 depositAmount = 10e18;
+
         vm.prank(depositor);
-        stakedEbtc.deposit(10e18, depositor);
+        stakedEbtc.deposit(depositAmount, depositor);
 
         vm.startPrank(address(0), address(0));
         (bool upkeepNeeded, bytes memory performData) = donationModule.checkUpkeep("");
@@ -91,7 +90,10 @@ contract TestDonationModule is Test {
         vm.prank(donationModule.keeper());
         donationModule.performUpkeep(performData);
 
-        assertEq(stakedEbtc.totalBalance() - ebtcBefore, 5746157211968972);
+        uint256 yieldAmount = (stakedEbtc.totalBalance() - ebtcBefore) * 52;
+        uint256 computedYield = yieldAmount * donationModule.BPS() / depositAmount;
+
+        assertEq(computedYield, donationModule.annualizedYieldBPS());
         assertEq(donationModule.lastProcessingTimestamp(), block.timestamp);
 
         // syncRewardsAndDistribution here does not advance lastSync
@@ -127,6 +129,19 @@ contract TestDonationModule is Test {
         return donationModule.ACTIVE_POOL().getFeeRecipientClaimableCollShares() + pendingShares;
     }
 
+    function testSwapPathValidation() public {
+        vm.prank(donationModule.GOVERNANCE());
+        donationModule.setSwapPath(abi.encodePacked(
+            0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,
+            uint24(100),
+            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            uint24(500),
+            0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599,
+            uint24(500),
+            ebtcToken
+        ));
+    }
+
     function testEbtcDonationCapped() public {
         vm.prank(depositor);
         stakedEbtc.deposit(10e18, depositor);
@@ -142,12 +157,12 @@ contract TestDonationModule is Test {
         // Shares to claim is less than shares available
         assertLt(collSharesToClaim, sharesAvailable);
 
-        // Transfer 99% of collShares to treasury
+        // Transfer 99.9% of collShares to treasury
         vm.prank(donationModule.GOVERNANCE());
-        donationModule.claimFeeRecipientCollShares(sharesAvailable * 99 / 100);
+        donationModule.claimFeeRecipientCollShares(sharesAvailable * 999 / 1000);
 
         vm.prank(donationModule.GOVERNANCE());
-        donationModule.sendFeeRecipientCollSharesToTreasury(sharesAvailable * 99 / 100);
+        donationModule.sendFeeRecipientCollSharesToTreasury(sharesAvailable * 999 / 1000);
 
         sharesAvailable = _getFeeRecipientCollShares();
 

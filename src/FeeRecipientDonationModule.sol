@@ -11,9 +11,11 @@ import { ICdpManager } from "./Dependencies/ICdpManager.sol";
 import { IPriceFeed } from "./Dependencies/IPriceFeed.sol";
 import { ICollateral } from "./Dependencies/ICollateral.sol";
 import { ISwapRouter } from "./Dependencies/ISwapRouter.sol";
+import { IQuoterV2 } from "./Dependencies/IQuoterV2.sol";
 import { IWstEth } from "./Dependencies/IWstEth.sol";
 import { IStakedEbtc } from "./IStakedEbtc.sol";
 import { LinearRewardsErc4626 } from "./LinearRewardsErc4626.sol";
+import "forge-std/console2.sol";
 
 // monitoring
 // - actual slippage
@@ -26,6 +28,10 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     IPriceFeed public constant PRICE_FEED = IPriceFeed(0xa9a65B1B1dDa8376527E89985b221B6bfCA1Dc9a);
     IERC20 public constant EBTC_TOKEN = IERC20(0x661c70333AA1850CcDBAe82776Bb436A0fCfeEfB);
     IWstEth public constant wstETH = IWstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+    IStakedEbtc public constant STAKED_EBTC = IStakedEbtc(0x5884055ca6CacF53A39DA4ea76DD88956baFAee0);
+    ISwapRouter public constant DEX = ISwapRouter(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+    IQuoterV2 public constant QUOTER = IQuoterV2(0x61fFE014bA17989E743c5F6cB21bF9697530B21e);
+
     /// @notice eBTC techops multisig
     address public constant GOVERNANCE = 0x690C74AF48BE029e763E61b4aDeB10E06119D3ba;
     address public constant TREASURY = 0xD0A7A8B98957b9CD3cFB9c0425AbE44551158e9e;
@@ -36,8 +42,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     /// @notice cap annualized yield at 20%
     uint256 public constant MAX_YIELD_BPS = 2000;
 
-    IStakedEbtc public immutable STAKED_EBTC;
-    ISwapRouter public immutable DEX;
 
     ////////////////////////////////////////////////////////////////////////////
     // STORAGE
@@ -103,21 +107,30 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         _;
     }
 
+    function _validateSwapPath(bytes memory _swapPath) private {
+        (uint256 spotPrice, , , ) = QUOTER.quoteExactInput(_swapPath, wstETH.getWstETHByStETH(1e18));
+        uint256 oraclePrice = PRICE_FEED.fetchPrice();
+
+        uint256 absDiff;
+        if (spotPrice > oraclePrice) {
+            absDiff = spotPrice - oraclePrice;
+        } else if (spotPrice < oraclePrice) {
+            absDiff = oraclePrice - spotPrice;
+        }
+
+        require((absDiff * BPS / oraclePrice) <= (BPS - minOutBPS), "bad price");
+    }
+
     /// @param _guardian Address allowed to pause contract
     constructor(
-        address _steBtc, 
-        address _dex, 
         address _guardian, 
         uint256 _annualizedYieldBPS,
         uint256 _minOutBPS,
         bytes memory _swapPath
     ) {
-        if (_steBtc == address(0)) revert ZeroAddress();
-        if (_dex == address(0)) revert ZeroAddress();
         if (_guardian == address(0)) revert ZeroAddress();
+        _validateSwapPath(_swapPath);
 
-        STAKED_EBTC = IStakedEbtc(_steBtc);
-        DEX = ISwapRouter(_dex);
         guardian = _guardian;
         annualizedYieldBPS = _annualizedYieldBPS;
         swapPath = _swapPath;
@@ -151,6 +164,8 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
+        (uint256 amountOut, , , ) = QUOTER.quoteExactInput(_swapPath, 1e18);
+
         emit SwapPathUpdated(swapPath, _swapPath);
         swapPath = _swapPath;
     }
