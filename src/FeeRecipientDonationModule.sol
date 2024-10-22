@@ -107,7 +107,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         _;
     }
 
-    function _validateSwapPath(bytes memory _swapPath) private {
+    function _isValidSwapPath(bytes memory _swapPath) private returns (bool) {
         (uint256 spotPrice, , , ) = QUOTER.quoteExactInput(_swapPath, wstETH.getWstETHByStETH(1e18));
         uint256 oraclePrice = PRICE_FEED.fetchPrice();
 
@@ -118,7 +118,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
             absDiff = oraclePrice - spotPrice;
         }
 
-        require((absDiff * BPS / oraclePrice) <= (BPS - minOutBPS), "bad price");
+        return (absDiff * BPS / oraclePrice) <= (BPS - minOutBPS);
     }
 
     /// @param _guardian Address allowed to pause contract
@@ -129,7 +129,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         bytes memory _swapPath
     ) {
         if (_guardian == address(0)) revert ZeroAddress();
-        _validateSwapPath(_swapPath);
+        require(_isValidSwapPath(_swapPath), "bad swapPath");
 
         guardian = _guardian;
         annualizedYieldBPS = _annualizedYieldBPS;
@@ -164,7 +164,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
-        _validateSwapPath(_swapPath);
+        require(_isValidSwapPath(_swapPath), "bad swapPath");
 
         emit SwapPathUpdated(swapPath, _swapPath);
         swapPath = _swapPath;
@@ -268,13 +268,10 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         cannotExecute
         returns (bool upkeepNeeded_, bytes memory performData_)
     {
-        if (!SAFE.isModuleEnabled(address(this)) || !_isReady()) {
+        if (!SAFE.isModuleEnabled(address(this)) || !_isReady() || !_isValidSwapPath(swapPath)) {
             // NOTE: explicit early return to checking rest of logic if these conditions are not met
             return (upkeepNeeded_, performData_);
         }
-
-        // validate price
-        _validateSwapPath(swapPath);
 
         // total ebtc staked
         uint256 storedTotalAssets = STAKED_EBTC.storedTotalAssets();
