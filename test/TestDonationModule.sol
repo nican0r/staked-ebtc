@@ -140,6 +140,19 @@ contract TestDonationModule is Test {
             uint24(500),
             ebtcToken
         ));
+
+        address gov = donationModule.GOVERNANCE();
+        bytes memory path = abi.encodePacked(
+            0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,
+            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599,
+            ebtcToken
+        );
+
+        // bad encoding
+        vm.expectRevert();
+        vm.prank(gov);
+        donationModule.setSwapPath(path);
     }
 
     function testEbtcDonationCapped() public {

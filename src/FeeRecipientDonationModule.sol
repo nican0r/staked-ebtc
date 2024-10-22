@@ -164,7 +164,7 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
     }
 
     function setSwapPath(bytes calldata _swapPath) external onlyGovernance {
-        (uint256 amountOut, , , ) = QUOTER.quoteExactInput(_swapPath, 1e18);
+        _validateSwapPath(_swapPath);
 
         emit SwapPathUpdated(swapPath, _swapPath);
         swapPath = _swapPath;
