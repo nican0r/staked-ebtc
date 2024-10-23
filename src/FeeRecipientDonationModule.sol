@@ -107,20 +107,6 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
         _;
     }
 
-    function _isValidSwapPath(bytes memory _swapPath) private returns (bool) {
-        (uint256 spotPrice, , , ) = QUOTER.quoteExactInput(_swapPath, wstETH.getWstETHByStETH(1e18));
-        uint256 oraclePrice = PRICE_FEED.fetchPrice();
-
-        uint256 absDiff;
-        if (spotPrice > oraclePrice) {
-            absDiff = spotPrice - oraclePrice;
-        } else if (spotPrice < oraclePrice) {
-            absDiff = oraclePrice - spotPrice;
-        }
-
-        return (absDiff * BPS / oraclePrice) <= (BPS - minOutBPS);
-    }
-
     /// @param _guardian Address allowed to pause contract
     constructor(
         address _guardian, 
@@ -309,6 +295,21 @@ contract FeeRecipientDonationModule is BaseModule, AutomationCompatible, Pausabl
 
     function _isReady() private view returns (bool) {
         return lastProcessingTimestamp < _lastRewardCycle();
+    }
+
+    function _isValidSwapPath(bytes memory _swapPath) private returns (bool) {
+        (uint256 spotPrice, , , ) = QUOTER.quoteExactInput(_swapPath, wstETH.getWstETHByStETH(1e18));
+        uint256 oraclePrice = PRICE_FEED.fetchPrice();
+
+        uint256 absDiff;
+        if (spotPrice > oraclePrice) {
+            absDiff = spotPrice - oraclePrice;
+        } else if (spotPrice < oraclePrice) {
+            absDiff = oraclePrice - spotPrice;
+        }
+
+        // make sure price diff % never exceeds minOut %
+        return (absDiff * BPS / oraclePrice) <= (BPS - minOutBPS);
     }
 
     function _lastRewardCycle() private view returns (uint256) {
